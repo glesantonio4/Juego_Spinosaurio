@@ -225,6 +225,9 @@
 
     const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
+    // UUID real de la sala "Juego Spinosaurio" en public.salas
+    const SALA_ID_SPINOSAURIO = '0bf404b0-5196-473d-8689-55df5315df55' ;
+
     // Guardamos el inicio aproximado de la partida actual
     let inicioPartida = new Date().toISOString();
     let ultimaPartidaRegistrada = null; // para no registrar doble el mismo score
@@ -248,8 +251,8 @@
         const finished_at = new Date().toISOString();
 
         const { error } = await supabase.from('quizzes').insert([{
-          sala_id: 'spinosaurio',   // identificador de esta "sala"
-          participante_id: null,    // este juego no pide datos personales
+          sala_id: SALA_ID_SPINOSAURIO,  // FK a public.salas.id
+          participante_id: null,         // este juego no pide datos personales
           started_at: inicioPartida,
           finished_at,
           puntaje_total: puntaje,
@@ -305,4 +308,3 @@
   </script>
 </body>
 </html>
-
