@@ -6,6 +6,9 @@
   <title>Registro para obtener tu premio</title>
   <link rel="stylesheet" href="styles.css"/>
 
+  <!-- Supabase JS v2 (NO LO MUEVAS, SOLO CAMBIA URL Y KEY ABAJO) -->
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+
   <style>
     :root{
       --card-bg:#23272f; --card-br:18px; --shadow-soft:0 2px 12px rgba(0,0,0,.12);
@@ -125,6 +128,34 @@
   </div>
 
   <script>
+    // ========= CONFIGURACIÓN SUPABASE =========
+    // Reemplaza estas dos constantes por las de tu proyecto
+    const SUPABASE_URL = 'https://qwgaeorsymfispmtsbut.supabase.co';
+    const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InF3Z2Flb3JzeW1maXNwbXRzYnV0Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjIzODcyODUsImV4cCI6MjA3Nzk2MzI4NX0.FThZIIpz3daC9u8QaKyRTpxUeW0v4QHs5sHX2s1U1eo';
+
+    // Cliente global de Supabase
+    const supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+    // Guarda el boleto en la tabla "boletos" y regresa el id insertado
+    async function guardarBoletoSupabase(payload){
+      try{
+        const { data, error } = await supabaseClient
+          .from("boletos")         // <-- si tu tabla se llama diferente, cámbialo aquí
+          .insert(payload)
+          .select("id")
+          .single();
+
+        if (error) {
+          console.error("Error Supabase insert:", error);
+          return null;
+        }
+        return data?.id || null;
+      }catch(err){
+        console.error("Excepción Supabase:", err);
+        return null;
+      }
+    }
+
     // ---------- Validadores ----------
     const reNombre = /^[A-Za-zÁÉÍÓÚÜÑáéíóúüñ]+(?:[ \t]+[A-Za-zÁÉÍÓÚÜÑáéíóúüñ'.-]+){1,}$/; // ≥2 palabras
     const reEmail  = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/i;
@@ -200,7 +231,7 @@
         try { localStorage.setItem('much_quiz_prize', JSON.stringify(prizeData)); } catch(_){}
       }
 
-      // Build params
+      // Build params para el boleto
       const params = new URLSearchParams({
         nombre:   nombre.trim().replace(/\s+/g,' '),
         correo:   correo.trim().toLowerCase(),
@@ -210,10 +241,40 @@
         lugar:    prizeData.lugar || ''
       });
 
-      // Evitar doble canje
-      try { localStorage.removeItem('much_quiz_prize'); } catch(_){}
+      // Sala (si viene de la URL o dentro de prizeData)
+      const qs = new URLSearchParams(location.search);
+      const salaSlug = qs.get('sala') || prizeData.sala || null;
 
-      window.location.href = 'boleto.html?' + params.toString();
+      // Payload que se mandará a la tabla "boletos"
+      const payload = {
+        nombre:   params.get('nombre'),
+        correo:   params.get('correo'),
+        telefono: params.get('telefono'),
+        premio:   params.get('premio'),
+        folio:    params.get('folio'),
+        lugar:    params.get('lugar'),
+        sala_slug: salaSlug,      // si tu columna se llama diferente, cámbiala
+        // created_at se llena solo en Supabase si tienes columna timestamp con default now()
+      };
+
+      // Guardar en Supabase y luego redirigir al boleto
+      guardarBoletoSupabase(payload).then(function(newId){
+        if (newId) {
+          params.append('boleto_id', newId);  // para poder leer ese registro en boleto.html
+        }
+
+        // Evitar doble canje
+        try { localStorage.removeItem('much_quiz_prize'); } catch(_){}
+
+        window.location.href = 'boleto.html?' + params.toString();
+      }).catch(function(err){
+        console.error("Fallo al guardar en Supabase:", err);
+
+        // Aun si falla, limpiamos y redirigimos como antes
+        try { localStorage.removeItem('much_quiz_prize'); } catch(_){}
+
+        window.location.href = 'boleto.html?' + params.toString();
+      });
     });
 
     // Limpieza de errores
