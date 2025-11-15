@@ -5,6 +5,9 @@
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
   <title>Boleto Ganador · MUCH</title>
 
+  <!-- Supabase JS -->
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+
   <style>
     :root{
       --ink:#0b1220; --muted:#64748b; --turquesa:#06b6d4; --fucsia:#d946ef;
@@ -149,6 +152,9 @@
           Presenta este boleto en taquilla. Sujeto a disponibilidad y horarios del museo.
         </div>
 
+        <!-- Aquí voy a mostrar TODOS los campos que vengan de la tabla de Supabase -->
+        <div id="dbFields" class="note" style="font-size:0.85rem; display:none;"></div>
+
         <div class="actions">
           <button class="btn btn-print" onclick="window.print()">🖨️ Imprimir Boleto</button>
           <a class="btn btn-link" href="index.html">↩️ Volver al inicio</a>
@@ -160,21 +166,49 @@
   </div>
 
   <script>
-  (function(){
+  // ============ CONFIGURACIÓN SUPABASE ============
+  const SUPABASE_URL = "https://TU-PROYECTO.supabase.co";      // mismo que en registro
+  const SUPABASE_ANON_KEY = "TU-LLAVE-ANON-PUBLICA";           // mismo anon key
+  const supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+  (async function(){
     const qs = new URLSearchParams(location.search);
 
-    let prizeData = null;
-    try{
-      const raw = localStorage.getItem('much_quiz_prize');
-      if(raw) prizeData = JSON.parse(raw);
-    }catch(_){}
-
+    // Datos que venían por query (compatibilidad con la versión anterior)
     const nombreQS  = qs.get('nombre')   || '';
     const correoQS  = qs.get('correo')   || '';
     const telQS     = qs.get('telefono') || '';
     const premioQS  = qs.get('premio')   || '';
     const folioQS   = qs.get('folio')    || '';
     const lugarQS   = qs.get('lugar')    || '';
+    const boletoId  = qs.get('boleto_id') || null;
+
+    // Intentar leer de localStorage (por si hay algo)
+    let prizeData = null;
+    try{
+      const raw = localStorage.getItem('much_quiz_prize');
+      if(raw) prizeData = JSON.parse(raw);
+    }catch(_){}
+
+    // Intentar leer el registro COMPLETO de la base de datos
+    let boletoRow = null;
+    if (boletoId) {
+      try{
+        const { data, error } = await supabaseClient
+          .from("boletos")         // si tu tabla se llama diferente, cámbialo
+          .select("*")
+          .eq("id", boletoId)
+          .maybeSingle();
+
+        if (error) {
+          console.error("Error al obtener boleto:", error);
+        } else {
+          boletoRow = data;
+        }
+      }catch(err){
+        console.error("Excepción al obtener boleto:", err);
+      }
+    }
 
     const hoy = new Date();
     const fin = new Date(hoy); fin.setDate(hoy.getDate() + 7);
@@ -182,13 +216,14 @@
     const fechaHoy = fmt.format(hoy);
     const fechaFin = fmt.format(fin);
 
-    const nombre = nombreQS || '—';
-    const correo = correoQS || '—';
-    const tel    = telQS    || '—';
-    const premio = (prizeData?.label) || premioQS || 'Entrada general';
-    const folio  = (prizeData?.folio) || folioQS  || ('MUCH-' + Math.random().toString(36).substring(2,8).toUpperCase());
-    const lugar  = (prizeData?.lugar) || lugarQS  || 'MUCH';
-    const title  = (prizeData?.title) || 'MUCH · Premio';
+    // Prioridad de origen: BD -> prizeData -> query string -> default
+    const nombre = (boletoRow?.nombre) || nombreQS || '—';
+    const correo = (boletoRow?.correo) || correoQS || '—';
+    const tel    = (boletoRow?.telefono) || telQS  || '—';
+    const premio = (boletoRow?.premio) || (prizeData?.label) || premioQS || 'Entrada general';
+    const folio  = (boletoRow?.folio)  || (prizeData?.folio) || folioQS  || ('MUCH-' + Math.random().toString(36).substring(2,8).toUpperCase());
+    const lugar  = (boletoRow?.lugar)  || (prizeData?.lugar) || lugarQS  || 'MUCH';
+    const title  = (prizeData?.title)  || 'MUCH · Premio';
 
     const el = (id)=> document.getElementById(id);
     el('tTitle').textContent  = title;
@@ -199,6 +234,17 @@
     el('tLugar').textContent  = lugar;
     el('tCorreo').textContent = correo;
     el('tTel').textContent    = tel;
+
+    // Mostrar TODOS los campos de la fila guardada en la BD
+    if (boletoRow) {
+      const dbBox = document.getElementById('dbFields');
+      dbBox.style.display = 'block';
+      dbBox.innerHTML = '<strong>Datos almacenados en la base de datos:</strong><br>';
+
+      Object.entries(boletoRow).forEach(([key, value]) => {
+        dbBox.innerHTML += `<div><span style="font-weight:600">${key}:</span> ${value === null ? '—' : String(value)}</div>`;
+      });
+    }
   })();
   </script>
 </body>
