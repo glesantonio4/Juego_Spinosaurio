@@ -368,7 +368,8 @@ function cerrarQuiz() {
   try { if (screen.orientation && screen.orientation.lock) screen.orientation.lock("landscape"); } catch(e){}
 }
 
-function validarQuiz() {
+/* ===== AQUÍ SÍ CAMBIO: validarQuiz ahora es async y registra en Supabase ===== */
+async function validarQuiz() {
   var msg = document.getElementById("quizMsg");
   var sel = document.querySelector('input[name="q1"]:checked');
   if (!sel) {
@@ -384,6 +385,13 @@ function validarQuiz() {
     navigatingToRegistro = true;
     quizVisible = false;
     document.getElementById("quizOverlay").classList.remove("show");
+
+    // === Nuevo: registrar la partida en Supabase ===
+    try {
+      await registrarQuizEnSupabase(score);
+    } catch(e) {
+      console.warn("No se pudo registrar el quiz en Supabase:", e);
+    }
 
     setTimeout(function () { window.location.href = "registro.html"; }, 400);
   } else {
@@ -407,3 +415,89 @@ function blockShortcutsDuringQuiz(e) {
     e.preventDefault(); e.stopPropagation(); return false;
   }
 }
+
+/* ===== SUPABASE – REGISTRO DE QUIZ ===== */
+/* Estas funciones son nuevas; no modifican el resto del juego. */
+
+const SUPABASE_URL = 'https://qwgaeorsymfispmtsbut.supabase.co';
+    const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InF3Z2Flb3JzeW1maXNwbXRzYnV0Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjIzODcyODUsImV4cCI6MjA3Nzk2MzI4NX0.FThZIIpz3daC9u8QaKyRTpxUeW0v4QHs5sHX2s1U1eo';           // <-- Y ESTO
+
+let muchSupabaseReadyPromise = null;
+
+// Carga la librería de Supabase si hace falta y crea el cliente
+function loadSupabaseClient() {
+  if (muchSupabaseReadyPromise) return muchSupabaseReadyPromise;
+
+  muchSupabaseReadyPromise = new Promise(function(resolve, reject){
+    function createClient() {
+      try {
+        if (!window.supabase) {
+          reject(new Error("Supabase JS no está disponible"));
+          return;
+        }
+        const client = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+        resolve(client);
+      } catch(e) {
+        reject(e);
+      }
+    }
+
+    if (window.supabase) {
+      // ya cargado (por otro script)
+      createClient();
+      return;
+    }
+
+    const s = document.createElement("script");
+    s.src = "https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2";
+    s.async = true;
+    s.onload = createClient;
+    s.onerror = function(){ reject(new Error("No se pudo cargar Supabase JS")); };
+    document.head.appendChild(s);
+  });
+
+  return muchSupabaseReadyPromise;
+}
+
+// Inserta el registro en la tabla quizzes
+async function registrarQuizEnSupabase(puntaje) {
+  try {
+    const supabaseClient = await loadSupabaseClient();
+
+    // Tomar la sala desde el query string (?sala=spinosaurio) o usar 'spinosaurio' por defecto
+    const qp = new URLSearchParams(location.search);
+    const salaSlug = qp.get("sala") || "spinosaurio";
+
+    const ahora = new Date().toISOString();
+
+    const payload = {
+      sala_slug: salaSlug,          // asegúrate de tener esta columna en quizzes
+      puntaje_total: puntaje * 10,  // ej. 10 puntos por obstáculo
+      num_correctas: puntaje,
+      started_at:  ahora,
+      finished_at: ahora
+    };
+
+    const { data, error } = await supabaseClient
+      .from("quizzes")   // nombre de tu tabla
+      .insert(payload)
+      .select("id")
+      .single();
+
+    if (error) {
+      console.warn("Error Supabase insert quizzes:", error);
+      return null;
+    }
+
+    // Guardamos el id por si luego quieres usarlo (boleto, etc.)
+    try {
+      localStorage.setItem("much_quiz_last_quiz_id", String(data.id));
+    } catch(_) {}
+
+    return data.id;
+  } catch(e) {
+    console.warn("Fallo al conectar con Supabase:", e);
+    return null;
+  }
+}
+
