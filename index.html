@@ -134,7 +134,7 @@
       box-shadow:0 20px 60px rgba(0,0,0,.35);
       color:#111;
       padding:clamp(16px,4.5vw,28px);
-      margin: 32px auto; /* deja respiro arriba/abajo para el scroll */
+      margin: 32px auto;
     }
 
     .quiz-title{font-size:clamp(18px,5vw,26px);font-weight:900;margin:0 0 8px;color:#2b2b2b;text-align:center}
@@ -216,7 +216,7 @@
     document.addEventListener('gesturestart', e => e.preventDefault(), {passive:false});
   </script>
 
-  <!-- ✅ NUEVO: conexión con Supabase + detección de GAME OVER sin tocar game.js -->
+  <!-- ✅ Conexión con Supabase + detección de GAME OVER -->
   <script type="module">
     import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 
@@ -225,14 +225,13 @@
 
     const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
-    // UUID real de la sala "Juego Spinosaurio" en public.salas
-    const SALA_ID_SPINOSAURIO = '0bf404b0-5196-473d-8689-55df5315df55' ;
+    // ⚠️ ESTE ES EL UUID REAL DE LA SALA "Juego Spinosaurio"
+    const SALA_ID_SPINOSAURIO = '0bf404b0-5196-473d-8689-55df5315df55';
 
     // Guardamos el inicio aproximado de la partida actual
     let inicioPartida = new Date().toISOString();
     let ultimaPartidaRegistrada = null; // para no registrar doble el mismo score
 
-    // Función auxiliar para saber si un elemento está visible visualmente
     function estaVisible(el) {
       if (!el) return false;
       const style = getComputedStyle(el);
@@ -243,7 +242,6 @@
 
     async function registrarPartidaSpino(puntaje) {
       try {
-        // Evitar registrar el mismo score dos veces seguidas
         const firma = `${puntaje}-${inicioPartida}`;
         if (ultimaPartidaRegistrada === firma) return;
         ultimaPartidaRegistrada = firma;
@@ -251,8 +249,8 @@
         const finished_at = new Date().toISOString();
 
         const { error } = await supabase.from('quizzes').insert([{
-          sala_id: SALA_ID_SPINOSAURIO,  // FK a public.salas.id
-          participante_id: null,         // este juego no pide datos personales
+          sala_id: SALA_ID_SPINOSAURIO,  // <- AQUÍ VA EL UUID
+          participante_id: null,
           started_at: inicioPartida,
           finished_at,
           puntaje_total: puntaje,
@@ -266,14 +264,12 @@
           console.log('✅ Partida Spino registrada con puntaje =', puntaje);
         }
 
-        // Preparamos el "inicio" de la siguiente partida
         inicioPartida = new Date().toISOString();
       } catch (e) {
         console.warn('❌ Error inesperado registrando partida Spino:', e?.message || e);
       }
     }
 
-    // Observa cambios en la pantalla de GAME OVER y registra cuando aparezca
     window.addEventListener('DOMContentLoaded', () => {
       const scoreEl = document.querySelector('.score');
       const gameOverEl = document.querySelector('.game-over');
@@ -285,11 +281,9 @@
 
       let estabaVisible = false;
 
-      // Usamos un pequeño intervalo para detectar cuando Game Over aparece
       setInterval(() => {
         const visible = estaVisible(gameOverEl);
         if (visible && !estabaVisible) {
-          // Transición de "no visible" -> "visible": es un GAME OVER nuevo
           const raw = (scoreEl.textContent || '').trim();
           const puntaje = Number.parseInt(raw, 10);
           if (!Number.isNaN(puntaje)) {
@@ -298,13 +292,13 @@
             console.warn('No se pudo leer puntaje desde .score, valor=', raw);
           }
         }
-        // Cuando deje de estar visible, asumimos que empieza una nueva carrera
         if (!visible && estabaVisible) {
           inicioPartida = new Date().toISOString();
         }
         estabaVisible = visible;
-      }, 400); // cada 0.4s es suficiente y no afecta rendimiento
+      }, 400);
     });
   </script>
 </body>
 </html>
+
