@@ -215,5 +215,94 @@
     }, {passive:false});
     document.addEventListener('gesturestart', e => e.preventDefault(), {passive:false});
   </script>
+
+  <!-- ✅ NUEVO: conexión con Supabase + detección de GAME OVER sin tocar game.js -->
+  <script type="module">
+    import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
+
+    const SUPABASE_URL = 'https://qwgaeorsymfispmtsbut.supabase.co';
+    const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InF3Z2Flb3JzeW1maXNwbXRzYnV0Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjIzODcyODUsImV4cCI6MjA3Nzk2MzI4NX0.FThZIIpz3daC9u8QaKyRTpxUeW0v4QHs5sHX2s1U1eo';
+
+    const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+    // Guardamos el inicio aproximado de la partida actual
+    let inicioPartida = new Date().toISOString();
+    let ultimaPartidaRegistrada = null; // para no registrar doble el mismo score
+
+    // Función auxiliar para saber si un elemento está visible visualmente
+    function estaVisible(el) {
+      if (!el) return false;
+      const style = getComputedStyle(el);
+      if (style.display === 'none' || style.visibility === 'hidden' || style.opacity === '0') return false;
+      if (el.offsetParent === null && style.position !== 'fixed') return false;
+      return true;
+    }
+
+    async function registrarPartidaSpino(puntaje) {
+      try {
+        // Evitar registrar el mismo score dos veces seguidas
+        const firma = `${puntaje}-${inicioPartida}`;
+        if (ultimaPartidaRegistrada === firma) return;
+        ultimaPartidaRegistrada = firma;
+
+        const finished_at = new Date().toISOString();
+
+        const { error } = await supabase.from('quizzes').insert([{
+          sala_id: 'spinosaurio',   // identificador de esta "sala"
+          participante_id: null,    // este juego no pide datos personales
+          started_at: inicioPartida,
+          finished_at,
+          puntaje_total: puntaje,
+          num_preguntas: 0,
+          num_correctas: 0
+        }]);
+
+        if (error) {
+          console.warn('❌ No se pudo registrar partida Spino:', error.message);
+        } else {
+          console.log('✅ Partida Spino registrada con puntaje =', puntaje);
+        }
+
+        // Preparamos el "inicio" de la siguiente partida
+        inicioPartida = new Date().toISOString();
+      } catch (e) {
+        console.warn('❌ Error inesperado registrando partida Spino:', e?.message || e);
+      }
+    }
+
+    // Observa cambios en la pantalla de GAME OVER y registra cuando aparezca
+    window.addEventListener('DOMContentLoaded', () => {
+      const scoreEl = document.querySelector('.score');
+      const gameOverEl = document.querySelector('.game-over');
+
+      if (!scoreEl || !gameOverEl) {
+        console.warn('No se encontraron .score o .game-over; no se podrá registrar en Supabase.');
+        return;
+      }
+
+      let estabaVisible = false;
+
+      // Usamos un pequeño intervalo para detectar cuando Game Over aparece
+      setInterval(() => {
+        const visible = estaVisible(gameOverEl);
+        if (visible && !estabaVisible) {
+          // Transición de "no visible" -> "visible": es un GAME OVER nuevo
+          const raw = (scoreEl.textContent || '').trim();
+          const puntaje = Number.parseInt(raw, 10);
+          if (!Number.isNaN(puntaje)) {
+            registrarPartidaSpino(puntaje);
+          } else {
+            console.warn('No se pudo leer puntaje desde .score, valor=', raw);
+          }
+        }
+        // Cuando deje de estar visible, asumimos que empieza una nueva carrera
+        if (!visible && estabaVisible) {
+          inicioPartida = new Date().toISOString();
+        }
+        estabaVisible = visible;
+      }, 400); // cada 0.4s es suficiente y no afecta rendimiento
+    });
+  </script>
 </body>
 </html>
+
