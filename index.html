@@ -3,29 +3,24 @@
 <head>
   <meta charset="UTF-8" />
   <meta http-equiv="X-UA-Compatible" content="IE=edge">
-  <!-- 🔒 Evita zoom por gestos/doble-tap -->
-  <meta name="viewport"
-        content="width=device-width, initial-scale=1, viewport-fit=cover, maximum-scale=1, user-scalable=no">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, maximum-scale=1, user-scalable=no">
   <title>Dinosaurio Chrome V2</title>
 
-  <!-- Tus estilos base -->
   <link rel="stylesheet" href="styles.css">
 
-  <!-- Estilos del QUIZ + pantalla completa + logos dentro del juego -->
   <style>
-    /* ===== Base y pantalla completa ===== */
     html, body { height: 100%; }
-    body{
+    body {
       margin:0;
       background: linear-gradient(180deg,#f5d3d8,#f7e1e6);
-      overflow:hidden; /* el scroll solo se permitirá en el overlay del quiz */
+      overflow:hidden;
       -webkit-tap-highlight-color: transparent;
       touch-action: manipulation;
       font-family: system-ui, -apple-system, "Segoe UI", Roboto, Arial, sans-serif;
       overscroll-behavior: none;
     }
 
-    .contenedor, .stage{
+    .contenedor, .stage {
       width: 100vw !important;
       height: 100svh !important;
       max-width: 100vw !important;
@@ -35,14 +30,14 @@
       box-sizing: border-box;
     }
 
-    .stage{
+    .stage {
       border-radius: 18px;
       overflow: hidden;
       position: relative;
     }
 
-    /* ===== Logos dentro del juego (HUD) ===== */
-    .hud-logos{
+    /* Logos HUD */
+    .hud-logos {
       position: absolute;
       top: max(8px, env(safe-area-inset-top));
       left: max(8px, env(safe-area-inset-left));
@@ -53,7 +48,7 @@
       pointer-events: none;
       opacity: .9;
     }
-    .hud-logos img{
+    .hud-logos img {
       height: clamp(26px, 10vh, 40px);
       width: auto;
       background: rgba(255,255,255,.65);
@@ -67,14 +62,14 @@
       .hud-logos img{ height: clamp(22px, 9vh, 32px); background: rgba(255,255,255,.55); }
     }
 
-    /* Botón Retry en overlay centrado */
-    .retry-wrap{
+    /* Botón Retry */
+    .retry-wrap {
       position: fixed; inset: 0; display: none; place-items: center;
       z-index: 9999;
       padding: max(12px, env(safe-area-inset-top)) max(12px, env(safe-area-inset-right)) max(12px, env(safe-area-inset-bottom)) max(12px, env(safe-area-inset-left));
     }
-    .retry-wrap.show{ display: grid; }
-    .btn-retry{
+    .retry-wrap.show { display: grid; }
+    .btn-retry {
       appearance:none;border:0;cursor:pointer;
       padding:14px 20px;border-radius:16px;font-weight:900;color:#fff;
       background: linear-gradient(135deg,#00c9b7,#9b5cf9);
@@ -82,51 +77,44 @@
       font-size: clamp(14px, 2.8vw, 18px);
     }
 
-    /* Overlay vertical (si el usuario no gira el teléfono) */
-    .rotate-overlay{
+    /* Overlay Girar Pantalla */
+    .rotate-overlay {
       position: fixed; inset: 0; display: none; place-items: center;
       background: #111; color: #fff; z-index: 100000;
       text-align: center; padding: 24px;
     }
-    .rotate-card{
+    .rotate-card {
       max-width: 520px; border-radius: 16px; padding: 22px 20px;
       background: #1f2937; box-shadow: 0 20px 60px rgba(0,0,0,.45);
     }
-    .rotate-title{ font-size: 22px; font-weight: 900; margin: 0 0 6px; }
-    .rotate-sub{ opacity:.85; margin: 0 0 10px; }
-    .rotate-emoji{ font-size: 48px; margin: 10px 0 2px; }
+    .rotate-title { font-size: 22px; font-weight: 900; margin: 0 0 6px; }
+    .rotate-sub { opacity:.85; margin: 0 0 10px; }
+    .rotate-emoji { font-size: 48px; margin: 10px 0 2px; }
 
-    /* ===== IMPORTANTE: en vertical se oculta el juego pero NO el quiz ===== */
+    /* Comportamiento Vertical/Horizontal */
     @media (orientation: portrait){
-      /* Muestra el aviso solo cuando NO hay quiz activo */
       body:not(.quiz-mode) .rotate-overlay{ display: grid; }
-      /* Oculta juego y retry en vertical */
       #game, .retry-wrap{ display: none !important; }
-      /* OJO: #quizOverlay NO se oculta en vertical */
     }
-
-    /* ===== NUEVO: durante el QUIZ, si está en landscape, oculta el quiz y muestra aviso ===== */
     @media (orientation: landscape){
       body.quiz-mode #quizOverlay{ display: none !important; }
       body.quiz-mode .rotate-overlay{ display: grid; }
     }
 
-    /* ===== QUIZ ===== */
-    .quiz-overlay{
+    /* Quiz Overlay */
+    .quiz-overlay {
       position:fixed; inset:0; display:none; place-items:center;
       background:rgba(0,0,0,.45); z-index:10000;
       padding:max(12px,env(safe-area-inset-top)) max(12px,env(safe-area-inset-right)) max(14px,env(safe-area-inset-bottom)) max(12px,env(safe-area-inset-left));
       backdrop-filter:blur(2px);
-
-      /* scroll SOLO en el overlay del quiz */
       overflow-y: auto !important;
       overscroll-behavior: contain;
       -webkit-overflow-scrolling: touch;
       touch-action: auto;
     }
-    .quiz-overlay.show{ display:grid; }
+    .quiz-overlay.show { display:grid; }
 
-    .quiz-card{
+    .quiz-card {
       width:min(720px,92vw);
       border-radius:18px;
       background:linear-gradient(180deg,rgba(255,255,255,.92),rgba(255,255,255,.86));
@@ -136,7 +124,6 @@
       padding:clamp(16px,4.5vw,28px);
       margin: 32px auto;
     }
-
     .quiz-title{font-size:clamp(18px,5vw,26px);font-weight:900;margin:0 0 8px;color:#2b2b2b;text-align:center}
     .quiz-sub{text-align:center;margin:0 0 16px;color:#475569;font-size:clamp(13px,3.3vw,16px)}
     .quiz-q{font-weight:800;font-size:clamp(15px,4vw,18px);margin:0 0 8px}
@@ -152,25 +139,21 @@
 </head>
 <body>
 
-  <!-- Overlay para pedir modo horizontal (o vertical durante el quiz) -->
   <div class="rotate-overlay" aria-hidden="true">
     <div class="rotate-card">
       <div class="rotate-emoji">📲↔️</div>
       <h3 class="rotate-title">Gira tu teléfono</h3>
-      <p class="rotate-sub">Este juego está optimizado para <strong>orientación horizontal</strong>. Durante el <strong>desafío final</strong> (quiz) se requiere <strong>orientación vertical</strong>.</p>
+      <p class="rotate-sub">Este juego está optimizado para <strong>orientación horizontal</strong>. Durante el <strong>desafío final</strong> se requiere <strong>vertical</strong>.</p>
     </div>
   </div>
 
-  <!-- Juego a pantalla completa -->
   <div class="contenedor" id="game">
     <div class="stage">
-      <!-- 👇 Logos dentro de la card -->
       <div class="hud-logos" aria-hidden="true">
         <img src="Logo-Ag-14.png" alt="Agencia Digital Chiapas">
         <img src="logo-sata.png" alt="SATA">
         <img src="logo-much-nuevo1.png" alt="MUCH">
       </div>
-
       <div class="suelo"></div>
       <div class="dino dino-corriendo"></div>
       <div class="score">0</div>
@@ -178,14 +161,12 @@
     </div>
   </div>
 
-  <!-- Botón de reintento (overlay centrado) -->
   <div class="retry-wrap" id="retryWrap">
     <button class="btn-retry" id="btnRetry">🔁 Intentar de nuevo</button>
   </div>
 
-  <!-- QUIZ -->
   <div id="quizOverlay" class="quiz-overlay" aria-hidden="true">
-    <div class="quiz-card" role="dialog" aria-modal="true" aria-labelledby="quizTitle">
+    <div class="quiz-card" role="dialog" aria-modal="true">
       <h3 id="quizTitle" class="quiz-title"></h3>
       <p id="quizSub" class="quiz-sub"></p>
       <p id="quizQuestion" class="quiz-q"></p>
@@ -198,13 +179,23 @@
     </div>
   </div>
 
-  <!-- Audio -->
   <audio id="jumpSound" src="jump.mp3" preload="auto"></audio>
 
-  <!-- Tu JS externo -->
+  <script type="module">
+    import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
+
+    const SUPABASE_URL = 'https://qwgaeorsymfispmtsbut.supabase.co';
+    const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InF3Z2Flb3JzeW1maXNwbXRzYnV0Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjIzODcyODUsImV4cCI6MjA3Nzk2MzI4NX0.FThZIIpz3daC9u8QaKyRTpxUeW0v4QHs5sHX2s1U1eo';
+
+    // Creamos el cliente y lo guardamos en window para usarlo en game.js
+    window.supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+    
+    // Definimos el ID de la sala una sola vez aquí
+    window.SALA_ID = '0bf404b0-5196-473d-8689-55df5315df55'; 
+  </script>
+
   <script src="game.js" defer></script>
 
-  <!-- 🔒 Bloqueos extra de zoom por doble-tap / doble-click -->
   <script>
     document.addEventListener('dblclick', e => e.preventDefault(), {passive:false});
     let lastTouchEnd = 0;
@@ -214,91 +205,55 @@
       lastTouchEnd = now;
     }, {passive:false});
     document.addEventListener('gesturestart', e => e.preventDefault(), {passive:false});
-  </script>
 
-  <!-- ✅ Conexión con Supabase + detección de GAME OVER -->
-  <script type="module">
-    import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
-
-    const SUPABASE_URL = 'https://qwgaeorsymfispmtsbut.supabase.co';
-    const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InF3Z2Flb3JzeW1maXNwbXRzYnV0Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjIzODcyODUsImV4cCI6MjA3Nzk2MzI4NX0.FThZIIpz3daC9u8QaKyRTpxUeW0v4QHs5sHX2s1U1eo';
-
-    const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
-
-    // ⚠️ ESTE ES EL UUID REAL DE LA SALA "Juego Spinosaurio"
-    const SALA_ID_SPINOSAURIO = '0bf404b0-5196-473d-8689-55df5315df55';
-
-    // Guardamos el inicio aproximado de la partida actual
-    let inicioPartida = new Date().toISOString();
-    let ultimaPartidaRegistrada = null; // para no registrar doble el mismo score
-
-    function estaVisible(el) {
-      if (!el) return false;
-      const style = getComputedStyle(el);
-      if (style.display === 'none' || style.visibility === 'hidden' || style.opacity === '0') return false;
-      if (el.offsetParent === null && style.position !== 'fixed') return false;
-      return true;
-    }
-
-    async function registrarPartidaSpino(puntaje) {
-      try {
-        const firma = `${puntaje}-${inicioPartida}`;
-        if (ultimaPartidaRegistrada === firma) return;
-        ultimaPartidaRegistrada = firma;
-
-        const finished_at = new Date().toISOString();
-
-        const { error } = await supabase.from('quizzes').insert([{
-          sala_id: SALA_ID_SPINOSAURIO,  // <- AQUÍ VA EL UUID
-          participante_id: null,
-          started_at: inicioPartida,
-          finished_at,
-          puntaje_total: puntaje,
-          num_preguntas: 0,
-          num_correctas: 0
-        }]);
-
-        if (error) {
-          console.warn('❌ No se pudo registrar partida Spino:', error.message);
-        } else {
-          console.log('✅ Partida Spino registrada con puntaje =', puntaje);
-        }
-
-        inicioPartida = new Date().toISOString();
-      } catch (e) {
-        console.warn('❌ Error inesperado registrando partida Spino:', e?.message || e);
-      }
-    }
-
-    window.addEventListener('DOMContentLoaded', () => {
+    /* Lógica de registro de Game Over */
+    window.addEventListener('load', () => {
       const scoreEl = document.querySelector('.score');
       const gameOverEl = document.querySelector('.game-over');
+      let inicioPartida = new Date().toISOString();
+      let ultimaPartidaGuardada = null;
 
-      if (!scoreEl || !gameOverEl) {
-        console.warn('No se encontraron .score o .game-over; no se podrá registrar en Supabase.');
-        return;
+      function estaVisible(el) {
+        if (!el) return false;
+        return getComputedStyle(el).display !== 'none';
       }
 
-      let estabaVisible = false;
+      setInterval(async () => {
+        const esGameOver = estaVisible(gameOverEl);
+        
+        if (esGameOver) {
+          // Si acaba de morir y no hemos guardado este score
+          const puntosTexto = scoreEl.textContent || '0';
+          const firma = puntosTexto + '-' + inicioPartida;
 
-      setInterval(() => {
-        const visible = estaVisible(gameOverEl);
-        if (visible && !estabaVisible) {
-          const raw = (scoreEl.textContent || '').trim();
-          const puntaje = Number.parseInt(raw, 10);
-          if (!Number.isNaN(puntaje)) {
-            registrarPartidaSpino(puntaje);
-          } else {
-            console.warn('No se pudo leer puntaje desde .score, valor=', raw);
+          if (ultimaPartidaGuardada !== firma) {
+            ultimaPartidaGuardada = firma;
+            
+            // REGISTRO EN SUPABASE
+            if (window.supabase) {
+              try {
+                await window.supabase.from('quizzes').insert([{
+                  sala_id: window.SALA_ID,
+                  participante_id: null,
+                  started_at: inicioPartida,
+                  finished_at: new Date().toISOString(),
+                  puntaje_total: parseInt(puntosTexto) || 0,
+                  num_correctas: 0
+                }]);
+                console.log("Puntaje Game Over guardado:", puntosTexto);
+              } catch(e) { console.warn("Error guardando score", e); }
+            }
           }
+        } else {
+            // Si no es game over, el juego se reinició (o está jugando)
+            // Solo actualizamos inicioPartida si ya habíamos guardado una partida anterior
+            if (ultimaPartidaGuardada && !esGameOver) {
+                inicioPartida = new Date().toISOString();
+                // ultimaPartidaGuardada se mantiene para no resetearlo hasta el siguiente game over
+            }
         }
-        if (!visible && estabaVisible) {
-          inicioPartida = new Date().toISOString();
-        }
-        estabaVisible = visible;
-      }, 400);
+      }, 500);
     });
   </script>
 </body>
 </html>
-
