@@ -4,7 +4,7 @@
   if (qp.get("start") !== "1") location.replace("portada.html");
 })();
 
-/* ===== Intento de forzar LANDSCAPE (cuando el navegador lo permite) ===== */
+/* ===== Intento de forzar LANDSCAPE ===== */
 async function requestFull() {
   try {
     const el = document.documentElement;
@@ -45,7 +45,7 @@ function Loop() {
 }
 
 /* ===== GAME STATE ===== */
-var sueloY = 24; // altura del "piso" para que se vean las patas
+var sueloY = 24;
 var velY = 0, impulso = 900, gravedad = 2500;
 var dinoPosX = 42, dinoPosY = sueloY;
 var sueloX = 0, velEscenario = 1280 / 3, gameVel = 1, score = 0;
@@ -57,12 +57,9 @@ var contenedor, dino, textoScore, suelo, gameOver;
 var WIN_SCORE = 10;
 
 var jumpSound;
-
 var quizData = null;
 var quizAnswerIndex = null;
 var quizVisible = false;
-
-/* Reusamos este flag para permitir navegar tanto a registro como a portada sin que dispare el anti-cheat */
 var navigatingToRegistro = false;
 
 /* ===== START ===== */
@@ -74,51 +71,30 @@ function Start() {
   dino = document.querySelector(".dino");
   jumpSound = document.getElementById("jumpSound");
 
-  // Intento inicial de fijar landscape (algunos navegadores requieren gesto del usuario)
   tryLandscapeLock();
 
   document.addEventListener("keydown", HandleKeyDown, { passive: false });
-
-  // Tap/click para saltar
-  contenedor.addEventListener("click", function (e) {
-    e.preventDefault();
-    tryLandscapeLock();
-    Saltar();
-  }, { passive: false });
-
-  contenedor.addEventListener("touchstart", function (e) {
-    e.preventDefault();
-    tryLandscapeLock();
-    Saltar();
-  }, { passive: false });
-
+  contenedor.addEventListener("click", function (e) { e.preventDefault(); tryLandscapeLock(); Saltar(); }, { passive: false });
+  contenedor.addEventListener("touchstart", function (e) { e.preventDefault(); tryLandscapeLock(); Saltar(); }, { passive: false });
   window.addEventListener("pointerdown", GlobalTap, { passive: false });
 
-  document.getElementById("btnRetry").addEventListener("click", function () {
-    location.reload();
-  });
-
+  document.getElementById("btnRetry").addEventListener("click", function () { location.reload(); });
   document.getElementById("btnQuizOk").addEventListener("click", validarQuiz);
 
-  /* ===== CAMBIO #1: Cancelar = cerrar juego y volver a portada ===== */
   document.getElementById("btnQuizCancel").addEventListener("click", function () {
-    navigatingToRegistro = true;            // evita anti-cheat
+    navigatingToRegistro = true;
     quizVisible = false;
     try { document.getElementById("quizOverlay").classList.remove("show"); } catch(e){}
     document.body.classList.remove("quiz-mode");
-    location.replace("portada.html");       // regresar a portada
+    location.replace("portada.html");
   });
 
   cargarQuizJSON();
 
-  // Anti-cheat básico (si se sale de la página durante el quiz)
   window.addEventListener("blur", antiCheatGuard, { passive: true });
-  document.addEventListener("visibilitychange", function () {
-    if (document.hidden) antiCheatGuard();
-  });
+  document.addEventListener("visibilitychange", function () { if (document.hidden) antiCheatGuard(); });
   window.addEventListener("pagehide", antiCheatGuard, { passive: true });
 
-  // Bloqueo de atajos cuando el quiz está abierto
   document.addEventListener("keydown", blockShortcutsDuringQuiz, { capture: true });
   document.addEventListener("contextmenu", function (e) { if (quizVisible) e.preventDefault(); });
 }
@@ -150,9 +126,7 @@ function GlobalTap(e) {
 function HandleKeyDown(ev) {
   if (quizVisible) return;
   if (ev.code === "Space" || ev.keyCode === 32 || ev.code === "ArrowUp" || ev.keyCode === 38) {
-    ev.preventDefault();
-    tryLandscapeLock();
-    Saltar();
+    ev.preventDefault(); tryLandscapeLock(); Saltar();
   }
 }
 
@@ -169,16 +143,10 @@ function Update() {
   velY -= gravedad * deltaTime;
 }
 
-/* ===== MOVIMIENTO ===== */
 function Saltar() {
   if (dinoPosY === sueloY) {
-    saltando = true;
-    velY = impulso;
-    dino.classList.remove("dino-corriendo");
-    if (jumpSound) {
-      jumpSound.currentTime = 0;
-      jumpSound.play().catch(() => {});
-    }
+    saltando = true; velY = impulso; dino.classList.remove("dino-corriendo");
+    if (jumpSound) { jumpSound.currentTime = 0; jumpSound.play().catch(() => {}); }
   }
 }
 function MoverDinosaurio() {
@@ -187,8 +155,7 @@ function MoverDinosaurio() {
   dino.style.bottom = dinoPosY + "px";
 }
 function TocarSuelo() {
-  dinoPosY = sueloY;
-  velY = 0;
+  dinoPosY = sueloY; velY = 0;
   if (saltando) dino.classList.add("dino-corriendo");
   saltando = false;
 }
@@ -196,14 +163,11 @@ function MoverSuelo() {
   sueloX += velEscenario * deltaTime * gameVel;
   suelo.style.left = -(sueloX % contenedor.clientWidth) + "px";
 }
-
-/* ===== OBJETOS ===== */
 function Estrellarse() {
   dino.classList.remove("dino-corriendo");
   dino.classList.add("dino-estrellado");
   parado = true;
 }
-
 function DecidirCrearObstaculos() {
   tiempoHastaObstaculo -= deltaTime;
   if (tiempoHastaObstaculo <= 0) CrearObstaculo();
@@ -212,36 +176,23 @@ function DecidirCrearNubes() {
   tiempoHastaNube -= deltaTime;
   if (tiempoHastaNube <= 0) CrearNube();
 }
-
 function CrearObstaculo() {
-  var o = document.createElement("div");
-  contenedor.appendChild(o);
-  o.classList.add("cactus");
-  if (Math.random() > 0.5) o.classList.add("cactus2");
-  o.posX = contenedor.clientWidth;
-  o.style.left = o.posX + "px";
-  obstaculos.push(o);
-  tiempoHastaObstaculo =
-    tiempoObstaculoMin + (Math.random() * (tiempoObstaculoMax - tiempoObstaculoMin)) / gameVel;
+  var o = document.createElement("div"); contenedor.appendChild(o);
+  o.classList.add("cactus"); if (Math.random() > 0.5) o.classList.add("cactus2");
+  o.posX = contenedor.clientWidth; o.style.left = o.posX + "px"; obstaculos.push(o);
+  tiempoHastaObstaculo = tiempoObstaculoMin + (Math.random() * (tiempoObstaculoMax - tiempoObstaculoMin)) / gameVel;
 }
-
 function CrearNube() {
-  var n = document.createElement("div");
-  contenedor.appendChild(n);
-  n.classList.add("nube");
-  n.posX = contenedor.clientWidth;
-  n.style.left = n.posX + "px";
-  n.style.bottom = 100 + Math.random() * (270 - 100) + "px";
-  nubes.push(n);
+  var n = document.createElement("div"); contenedor.appendChild(n);
+  n.classList.add("nube"); n.posX = contenedor.clientWidth; n.style.left = n.posX + "px";
+  n.style.bottom = 100 + Math.random() * (270 - 100) + "px"; nubes.push(n);
   tiempoHastaNube = tiempoNubeMin + Math.random() * (tiempoNubeMax - tiempoNubeMin) / gameVel;
 }
-
 function MoverObstaculos() {
   for (var i = obstaculos.length - 1; i >= 0; i--) {
     if (obstaculos[i].posX < -obstaculos[i].clientWidth) {
       obstaculos[i].parentNode.removeChild(obstaculos[i]);
-      obstaculos.splice(i, 1);
-      GanarPuntos();
+      obstaculos.splice(i, 1); GanarPuntos();
     } else {
       obstaculos[i].posX -= velEscenario * deltaTime * gameVel;
       obstaculos[i].style.left = obstaculos[i].posX + "px";
@@ -251,8 +202,7 @@ function MoverObstaculos() {
 function MoverNubes() {
   for (var i = nubes.length - 1; i >= 0; i--) {
     if (nubes[i].posX < -nubes[i].clientWidth) {
-      nubes[i].parentNode.removeChild(nubes[i]);
-      nubes.splice(i, 1);
+      nubes[i].parentNode.removeChild(nubes[i]); nubes.splice(i, 1);
     } else {
       nubes[i].posX -= velEscenario * deltaTime * gameVel * velNube;
       nubes[i].style.left = nubes[i].posX + "px";
@@ -262,30 +212,19 @@ function MoverNubes() {
 
 /* ===== SCORE / QUIZ ===== */
 function GanarPuntos() {
-  score++;
-  textoScore.innerText = score;
-  if (score == 5) {
-    gameVel = 1.5;
-    contenedor.classList.add("mediodia");
-  } else if (score == 15) {
-    gameVel = 2;
-    contenedor.classList.add("tarde");
-  } else if (score == WIN_SCORE) {
-    gameVel = 3;
-    contenedor.classList.add("noche");
-    parado = true;
-    dino.classList.remove("dino-corriendo");
-    mostrarQuiz();
-    return;
+  score++; textoScore.innerText = score;
+  if (score == 5) { gameVel = 1.5; contenedor.classList.add("mediodia"); }
+  else if (score == 15) { gameVel = 2; contenedor.classList.add("tarde"); }
+  else if (score == WIN_SCORE) {
+    gameVel = 3; contenedor.classList.add("noche"); parado = true;
+    dino.classList.remove("dino-corriendo"); mostrarQuiz(); return;
   }
   suelo.style.animationDuration = 3 / gameVel + "s";
 }
 
 function GameOver() {
-  Estrellarse();
-  gameOver.style.display = "grid";
-  var wrap = document.getElementById("retryWrap");
-  if (wrap) wrap.classList.add("show");
+  Estrellarse(); gameOver.style.display = "grid";
+  var wrap = document.getElementById("retryWrap"); if (wrap) wrap.classList.add("show");
   try { window.scrollTo({ top: 0, behavior: "smooth" }); } catch (e) {}
 }
 
@@ -297,18 +236,13 @@ function DetectarColision() {
 }
 function IsCollision(a, b, pt, pr, pb, pl) {
   var A = a.getBoundingClientRect(), B = b.getBoundingClientRect();
-  return !(A.top + A.height - pb < B.top ||
-           A.top + pt > B.top + B.height ||
-           A.left + A.width - pr < B.left ||
-           A.left + pl > B.left + B.width);
+  return !(A.top + A.height - pb < B.top || A.top + pt > B.top + B.height ||
+           A.left + A.width - pr < B.left || A.left + pl > B.left + B.width);
 }
 
-/* ===== CAMBIO #2: Quiz solo en vertical ===== */
+/* ===== QUIZ UI ===== */
 function mostrarQuiz() {
-  // Flag para estilos (oculta juego en portrait y controla overlay en landscape)
   document.body.classList.add("quiz-mode");
-
-  // Intento forzar desbloqueo y fijar a vertical (si el navegador lo permite)
   try { if (screen.orientation && screen.orientation.unlock) screen.orientation.unlock(); } catch(e){}
   setTimeout(() => {
     try { if (screen.orientation && screen.orientation.lock) screen.orientation.lock("portrait-primary"); } catch(e){}
@@ -316,188 +250,97 @@ function mostrarQuiz() {
 
   if (!quizData) {
     quizData = {
-      title: "¡Muy bien! Antes de reclamar tu premio…",
-      subtitle: "Responde esta pregunta sobre el museo para continuar:",
-      question:
-        "¿En qué espacio de un museo de ciencia puedes observar el cielo y aprender sobre constelaciones?",
-      options: ["Pinacoteca", "Auditorio", "Cafetería", "Planetario"],
-      answerIndex: 3,
+      title: "¡Muy bien!", subtitle: "Responde para continuar:",
+      question: "¿Pregunta por defecto?", options: ["A", "B", "C", "D"], answerIndex: 3
     };
   }
 
   document.getElementById("quizTitle").textContent = quizData.title || "Pregunta final";
-  document.getElementById("quizSub").textContent   = quizData.subtitle || "";
+  document.getElementById("quizSub").textContent = quizData.subtitle || "";
   document.getElementById("quizQuestion").textContent = quizData.question || "";
 
-  var box = document.getElementById("quizOptions");
-  box.innerHTML = "";
+  var box = document.getElementById("quizOptions"); box.innerHTML = "";
   quizAnswerIndex = Number(quizData.answerIndex) || 0;
 
   (quizData.options || []).forEach(function (txt, i) {
-    var id = "q1_" + i;
-    var label = document.createElement("label");
-    label.className = "quiz-opt";
-    label.innerHTML =
-      '<input type="radio" name="q1" value="' + i + '" id="' + id + '"> <span>' + txt + "</span>";
+    var label = document.createElement("label"); label.className = "quiz-opt";
+    label.innerHTML = '<input type="radio" name="q1" value="' + i + '"> <span>' + txt + "</span>";
     box.appendChild(label);
   });
 
   var o = document.getElementById("quizOverlay");
-  var msg = document.getElementById("quizMsg");
-  msg.textContent = "";
-  msg.className = "quiz-msg";
-  o.classList.add("show");
-  quizVisible = true;
-
-  // Si está en landscape, el CSS ocultará el quiz y mostrará el overlay de "gira tu teléfono".
-  setTimeout(function () { 
-    try { document.getElementById("btnQuizOk").focus(); } catch(_) {}
-  }, 20);
-
+  var msg = document.getElementById("quizMsg"); msg.textContent = ""; msg.className = "quiz-msg";
+  o.classList.add("show"); quizVisible = true;
   try { window.scrollTo({ top: 0, behavior: "smooth" }); } catch (e) {}
 }
 
-function cerrarQuiz() {
-  document.getElementById("quizOverlay").classList.remove("show");
-  document.body.classList.remove("quiz-mode");
-  quizVisible = false;
-  parado = false;
-  dino.classList.add("dino-corriendo");
-  time = new Date();
-  // ↓ vuelve a bloquear horizontal para seguir jugando
-  try { if (screen.orientation && screen.orientation.lock) screen.orientation.lock("landscape"); } catch(e){}
-}
-
-/* ===== AQUÍ SÍ CAMBIO: validarQuiz ahora es async y registra en Supabase ===== */
 async function validarQuiz() {
   var msg = document.getElementById("quizMsg");
   var sel = document.querySelector('input[name="q1"]:checked');
+  
   if (!sel) {
-    msg.textContent = "Selecciona una opción 😉";
-    msg.className = "quiz-msg err";
-    return;
+    msg.textContent = "Selecciona una opción 😉"; msg.className = "quiz-msg err"; return;
   }
-  if (Number(sel.value) === quizAnswerIndex) {
-    msg.textContent = "¡Correcto! Vamos a registrar tu premio.";
-    msg.className = "quiz-msg ok";
 
-    // Cerrar el quiz y permitir la navegación sin que el anti-cheat actúe
-    navigatingToRegistro = true;
-    quizVisible = false;
+  if (Number(sel.value) === quizAnswerIndex) {
+    msg.textContent = "¡Correcto! Registrando..."; msg.className = "quiz-msg ok";
+    
+    navigatingToRegistro = true; quizVisible = false;
     document.getElementById("quizOverlay").classList.remove("show");
 
-    // === Nuevo: registrar la partida en Supabase ===
-    try {
-      await registrarQuizEnSupabase(score);
-    } catch(e) {
-      console.warn("No se pudo registrar el quiz en Supabase:", e);
-    }
+    // REGISTRO DEL QUIZ GANADO
+    await registrarQuizEnSupabase(score);
 
     setTimeout(function () { window.location.href = "registro.html"; }, 400);
   } else {
-    msg.textContent = "Respuesta incorrecta. Intenta de nuevo.";
-    msg.className = "quiz-msg err";
+    msg.textContent = "Incorrecto. Intenta de nuevo."; msg.className = "quiz-msg err";
   }
 }
 
-/* ===== ANTI-CHEAT ===== */
 function antiCheatGuard() {
-  if (navigatingToRegistro) return;
-  if (!quizVisible) return;
+  if (navigatingToRegistro || !quizVisible) return;
   try { document.getElementById("quizOverlay").classList.remove("show"); } catch (e) {}
   location.replace("portada.html");
 }
 function blockShortcutsDuringQuiz(e) {
   if (!quizVisible) return;
   const k = (e.key || "").toLowerCase();
-  const isMod = e.ctrlKey || e.metaKey;
-  if ((isMod && ["l","t","n","w","k","p","r"].includes(k)) || k === "f1") {
+  if ((e.ctrlKey || e.metaKey) && ["l","t","n","w","k","p","r"].includes(k)) {
     e.preventDefault(); e.stopPropagation(); return false;
   }
 }
 
-/* ===== SUPABASE – REGISTRO DE QUIZ ===== */
-/* Estas funciones son nuevas; no modifican el resto del juego. */
-
-const SUPABASE_URL = 'https://qwgaeorsymfispmtsbut.supabase.co';
-    const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InF3Z2Flb3JzeW1maXNwbXRzYnV0Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjIzODcyODUsImV4cCI6MjA3Nzk2MzI4NX0.FThZIIpz3daC9u8QaKyRTpxUeW0v4QHs5sHX2s1U1eo';           // <-- Y ESTO
-
-let muchSupabaseReadyPromise = null;
-
-// Carga la librería de Supabase si hace falta y crea el cliente
-function loadSupabaseClient() {
-  if (muchSupabaseReadyPromise) return muchSupabaseReadyPromise;
-
-  muchSupabaseReadyPromise = new Promise(function(resolve, reject){
-    function createClient() {
-      try {
-        if (!window.supabase) {
-          reject(new Error("Supabase JS no está disponible"));
-          return;
-        }
-        const client = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
-        resolve(client);
-      } catch(e) {
-        reject(e);
-      }
-    }
-
-    if (window.supabase) {
-      // ya cargado (por otro script)
-      createClient();
-      return;
-    }
-
-    const s = document.createElement("script");
-    s.src = "https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2";
-    s.async = true;
-    s.onload = createClient;
-    s.onerror = function(){ reject(new Error("No se pudo cargar Supabase JS")); };
-    document.head.appendChild(s);
-  });
-
-  return muchSupabaseReadyPromise;
-}
-
-// Inserta el registro en la tabla quizzes
+/* ===== SUPABASE LOGIC (Limpia) ===== */
 async function registrarQuizEnSupabase(puntaje) {
+  // Usamos la conexión global creada en index.html
+  if (!window.supabase) {
+    console.warn("Supabase no está cargado.");
+    return;
+  }
+
   try {
-    const supabaseClient = await loadSupabaseClient();
-
-    // Tomar la sala desde el query string (?sala=spinosaurio) o usar 'spinosaurio' por defecto
-    const qp = new URLSearchParams(location.search);
-    const salaSlug = qp.get("sala") || "spinosaurio";
-
     const ahora = new Date().toISOString();
+    // Usamos el ID definido en el HTML
+    const salaId = window.SALA_ID || '0bf404b0-5196-473d-8689-55df5315df55'; 
 
-    const payload = {
-      sala_slug: salaSlug,          // asegúrate de tener esta columna en quizzes
-      puntaje_total: puntaje * 10,  // ej. 10 puntos por obstáculo
-      num_correctas: puntaje,
-      started_at:  ahora,
-      finished_at: ahora
-    };
-
-    const { data, error } = await supabaseClient
-      .from("quizzes")   // nombre de tu tabla
-      .insert(payload)
+    const { data, error } = await window.supabase
+      .from("quizzes")
+      .insert({
+        sala_id: salaId,
+        puntaje_total: puntaje * 10, // Ejemplo: 10 pts por obstáculo
+        num_correctas: puntaje,
+        started_at: ahora,
+        finished_at: ahora
+      })
       .select("id")
       .single();
 
-    if (error) {
-      console.warn("Error Supabase insert quizzes:", error);
-      return null;
+    if (error) console.warn("Error insert Supabase:", error.message);
+    else {
+      try { localStorage.setItem("much_quiz_last_quiz_id", String(data.id)); } catch(_) {}
     }
-
-    // Guardamos el id por si luego quieres usarlo (boleto, etc.)
-    try {
-      localStorage.setItem("much_quiz_last_quiz_id", String(data.id));
-    } catch(_) {}
-
-    return data.id;
   } catch(e) {
-    console.warn("Fallo al conectar con Supabase:", e);
-    return null;
+    console.warn("Fallo conexión Supabase:", e);
   }
 }
 
