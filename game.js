@@ -321,7 +321,7 @@ async function registrarQuizEnSupabase(puntaje) {
   try {
     const ahora = new Date().toISOString();
     // Usamos el ID definido en el HTML
-    const salaId = window.SALA_ID || '0b4f04b0-5196-473d-8689-55df5315df55';
+    const salaId = window.SALA_ID || '6d66b495-cf43-42c1-b7f8-627ceb6fe33d';
 
     const { data, error } = await window.supabase
       .from("quizzes")
@@ -343,5 +343,6 @@ async function registrarQuizEnSupabase(puntaje) {
     console.warn("Fallo conexión Supabase:", e);
   }
 }
+
 
 
