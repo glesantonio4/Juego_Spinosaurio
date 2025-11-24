@@ -180,22 +180,24 @@
   </div>
 
   <audio id="jumpSound" src="jump.mp3" preload="auto"></audio>
-
-  <script type="module">
+  
+    <script type="module">
     import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 
     const SUPABASE_URL = 'https://qwgaeorsymfispmtsbut.supabase.co';
     const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InF3Z2Flb3JzeW1maXNwbXRzYnV0Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjIzODcyODUsImV4cCI6MjA3Nzk2MzI4NX0.FThZIIpz3daC9u8QaKyRTpxUeW0v4QHs5sHX2s1U1eo';
-
     // Cliente global
     window.supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
     
     // ✅ ID EXACTO DE LA SALA "Juego Spinosaurio"
-    window.SALA_ID = '0b4f04b0-5196-473d-8689-55df5315df55';
+    window.supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+    
+    // ✅ ID QUE TÚ ME MOSTRASTE EN LA FOTO (EL REAL)
+    window.SALA_ID = '0b4f04b0-5196-473d-8689-55d5f315df55';
     
     console.log("Supabase listo. Sala ID:", window.SALA_ID);
   </script>
-
+  
   <script src="game.js" defer></script>
 
   <script>
@@ -260,4 +262,5 @@
   </script>
 </body>
 </html>
+
 
