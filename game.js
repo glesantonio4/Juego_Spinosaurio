@@ -321,7 +321,7 @@ async function registrarQuizEnSupabase(puntaje) {
   try {
     const ahora = new Date().toISOString();
     // ✅ USA EL ID CORRECTO DEL SPINOSAURIO
-    const salaId = window.SALA_ID || '0b4f04b0-5196-473d-8689-55df5315df55'; 
+    const salaId = window.SALA_ID || '0b4f04b0-5196-473d-8689-55d5f315df55'; 
 
     const { data, error } = await window.supabase
       .from("quizzes")
@@ -344,4 +344,5 @@ async function registrarQuizEnSupabase(puntaje) {
     console.warn("Fallo conexión Supabase:", e);
   }
 }
+
 
