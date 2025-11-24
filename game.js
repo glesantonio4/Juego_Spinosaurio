@@ -1,263 +1,347 @@
-<!DOCTYPE html>
-<html lang="es">
-<head>
-  <meta charset="UTF-8" />
-  <meta http-equiv="X-UA-Compatible" content="IE=edge">
-  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, maximum-scale=1, user-scalable=no">
-  <title>Juego Spinosaurio</title>
+/* Redirección a portada si no viene con ?start=1 */
+(function () {
+  var qp = new URLSearchParams(location.search);
+  if (qp.get("start") !== "1") location.replace("portada.html");
+})();
 
-  <link rel="stylesheet" href="styles.css">
-
-  <style>
-    html, body { height: 100%; }
-    body {
-      margin:0;
-      background: linear-gradient(180deg,#f5d3d8,#f7e1e6);
-      overflow:hidden;
-      -webkit-tap-highlight-color: transparent;
-      touch-action: manipulation;
-      font-family: system-ui, -apple-system, "Segoe UI", Roboto, Arial, sans-serif;
-      overscroll-behavior: none;
+/* ===== Intento de forzar LANDSCAPE ===== */
+async function requestFull() {
+  try {
+    const el = document.documentElement;
+    if (!document.fullscreenElement && el.requestFullscreen) {
+      //await el.requestFullscreen();
     }
-
-    .contenedor, .stage {
-      width: 100vw !important;
-      height: 100svh !important;
-      max-width: 100vw !important;
-      max-height: 100svh !important;
-      margin: 0 !important;
-      padding: 0 !important;
-      box-sizing: border-box;
+  } catch (e) {}
+}
+async function lockLandscape() {
+  try {
+    if (screen.orientation && screen.orientation.lock) {
+      await screen.orientation.lock("landscape");
     }
+  } catch (e) {}
+}
+function tryLandscapeLock() {
+  requestFull().then(lockLandscape).catch(() => {});
+}
 
-    .stage {
-      border-radius: 18px;
-      overflow: hidden;
-      position: relative;
+/* ====== LOOP BASE ====== */
+var time = new Date(), deltaTime = 0;
+if (document.readyState === "complete" || document.readyState === "interactive") {
+  setTimeout(Init, 1);
+} else {
+  document.addEventListener("DOMContentLoaded", Init);
+}
+
+function Init() {
+  time = new Date();
+  Start();
+  Loop();
+}
+function Loop() {
+  deltaTime = (new Date() - time) / 1000;
+  time = new Date();
+  Update();
+  requestAnimationFrame(Loop);
+}
+
+/* ===== GAME STATE ===== */
+var sueloY = 24;
+var velY = 0, impulso = 900, gravedad = 2500;
+var dinoPosX = 42, dinoPosY = sueloY;
+var sueloX = 0, velEscenario = 1280 / 3, gameVel = 1, score = 0;
+var parado = false, saltando = false;
+var tiempoHastaObstaculo = 2, tiempoObstaculoMin = 0.7, tiempoObstaculoMax = 1.8, obstaculoPosY = 16, obstaculos = [];
+var tiempoHastaNube = 0.5, tiempoNubeMin = 0.7, tiempoNubeMax = 2.7, maxNubeY = 270, minNubeY = 100, nubes = [], velNube = 0.5;
+
+var contenedor, dino, textoScore, suelo, gameOver;
+var WIN_SCORE = 10;
+
+var jumpSound;
+var quizData = null;
+var quizAnswerIndex = null;
+var quizVisible = false;
+var navigatingToRegistro = false;
+
+/* ===== START ===== */
+function Start() {
+  gameOver = document.querySelector(".game-over");
+  suelo = document.querySelector(".suelo");
+  contenedor = document.querySelector(".contenedor");
+  textoScore = document.querySelector(".score");
+  dino = document.querySelector(".dino");
+  jumpSound = document.getElementById("jumpSound");
+
+  tryLandscapeLock();
+
+  document.addEventListener("keydown", HandleKeyDown, { passive: false });
+  contenedor.addEventListener("click", function (e) { e.preventDefault(); tryLandscapeLock(); Saltar(); }, { passive: false });
+  contenedor.addEventListener("touchstart", function (e) { e.preventDefault(); tryLandscapeLock(); Saltar(); }, { passive: false });
+  window.addEventListener("pointerdown", GlobalTap, { passive: false });
+
+  document.getElementById("btnRetry").addEventListener("click", function () { location.reload(); });
+  document.getElementById("btnQuizOk").addEventListener("click", validarQuiz);
+
+  document.getElementById("btnQuizCancel").addEventListener("click", function () {
+    navigatingToRegistro = true;
+    quizVisible = false;
+    try { document.getElementById("quizOverlay").classList.remove("show"); } catch(e){}
+    document.body.classList.remove("quiz-mode");
+    location.replace("portada.html");
+  });
+
+  cargarQuizJSON();
+
+  window.addEventListener("blur", antiCheatGuard, { passive: true });
+  document.addEventListener("visibilitychange", function () { if (document.hidden) antiCheatGuard(); });
+  window.addEventListener("pagehide", antiCheatGuard, { passive: true });
+
+  document.addEventListener("keydown", blockShortcutsDuringQuiz, { capture: true });
+  document.addEventListener("contextmenu", function (e) { if (quizVisible) e.preventDefault(); });
+}
+
+/* ===== QUIZ JSON ===== */
+async function cargarQuizJSON() {
+  try {
+    const res = await fetch("quiz.json?cb=" + Date.now());
+    const data = await res.json();
+    const list = Array.isArray(data.questions) ? data.questions : [];
+    quizData = list.length ? list[Math.floor(Math.random() * list.length)] : null;
+  } catch (e) {
+    quizData = null;
+  }
+}
+
+/* ===== CONTROLES ===== */
+function GlobalTap(e) {
+  if (parado || quizVisible) return;
+  var target = e.target;
+  if (target.closest("#retryWrap") || target.closest("#quizOverlay")) return;
+  var tag = (target.tagName || "").toLowerCase();
+  if (tag === "button" || tag === "a") return;
+  if (e && typeof e.preventDefault === "function") e.preventDefault();
+  tryLandscapeLock();
+  Saltar();
+}
+
+function HandleKeyDown(ev) {
+  if (quizVisible) return;
+  if (ev.code === "Space" || ev.keyCode === 32 || ev.code === "ArrowUp" || ev.keyCode === 38) {
+    ev.preventDefault(); tryLandscapeLock(); Saltar();
+  }
+}
+
+/* ===== UPDATE ===== */
+function Update() {
+  if (parado) return;
+  MoverDinosaurio();
+  MoverSuelo();
+  DecidirCrearObstaculos();
+  DecidirCrearNubes();
+  MoverObstaculos();
+  MoverNubes();
+  DetectarColision();
+  velY -= gravedad * deltaTime;
+}
+
+function Saltar() {
+  if (dinoPosY === sueloY) {
+    saltando = true; velY = impulso; dino.classList.remove("dino-corriendo");
+    if (jumpSound) { jumpSound.currentTime = 0; jumpSound.play().catch(() => {}); }
+  }
+}
+function MoverDinosaurio() {
+  dinoPosY += velY * deltaTime;
+  if (dinoPosY < sueloY) TocarSuelo();
+  dino.style.bottom = dinoPosY + "px";
+}
+function TocarSuelo() {
+  dinoPosY = sueloY; velY = 0;
+  if (saltando) dino.classList.add("dino-corriendo");
+  saltando = false;
+}
+function MoverSuelo() {
+  sueloX += velEscenario * deltaTime * gameVel;
+  suelo.style.left = -(sueloX % contenedor.clientWidth) + "px";
+}
+function Estrellarse() {
+  dino.classList.remove("dino-corriendo");
+  dino.classList.add("dino-estrellado");
+  parado = true;
+}
+function DecidirCrearObstaculos() {
+  tiempoHastaObstaculo -= deltaTime;
+  if (tiempoHastaObstaculo <= 0) CrearObstaculo();
+}
+function DecidirCrearNubes() {
+  tiempoHastaNube -= deltaTime;
+  if (tiempoHastaNube <= 0) CrearNube();
+}
+function CrearObstaculo() {
+  var o = document.createElement("div"); contenedor.appendChild(o);
+  o.classList.add("cactus"); if (Math.random() > 0.5) o.classList.add("cactus2");
+  o.posX = contenedor.clientWidth; o.style.left = o.posX + "px"; obstaculos.push(o);
+  tiempoHastaObstaculo = tiempoObstaculoMin + (Math.random() * (tiempoObstaculoMax - tiempoObstaculoMin)) / gameVel;
+}
+function CrearNube() {
+  var n = document.createElement("div"); contenedor.appendChild(n);
+  n.classList.add("nube"); n.posX = contenedor.clientWidth; n.style.left = n.posX + "px";
+  n.style.bottom = 100 + Math.random() * (270 - 100) + "px"; nubes.push(n);
+  tiempoHastaNube = tiempoNubeMin + Math.random() * (tiempoNubeMax - tiempoNubeMin) / gameVel;
+}
+function MoverObstaculos() {
+  for (var i = obstaculos.length - 1; i >= 0; i--) {
+    if (obstaculos[i].posX < -obstaculos[i].clientWidth) {
+      obstaculos[i].parentNode.removeChild(obstaculos[i]);
+      obstaculos.splice(i, 1); GanarPuntos();
+    } else {
+      obstaculos[i].posX -= velEscenario * deltaTime * gameVel;
+      obstaculos[i].style.left = obstaculos[i].posX + "px";
     }
-
-    /* Logos HUD */
-    .hud-logos {
-      position: absolute;
-      top: max(8px, env(safe-area-inset-top));
-      left: max(8px, env(safe-area-inset-left));
-      display: flex;
-      flex-direction: column;
-      gap: 8px;
-      z-index: 5;
-      pointer-events: none;
-      opacity: .9;
+  }
+}
+function MoverNubes() {
+  for (var i = nubes.length - 1; i >= 0; i--) {
+    if (nubes[i].posX < -nubes[i].clientWidth) {
+      nubes[i].parentNode.removeChild(nubes[i]); nubes.splice(i, 1);
+    } else {
+      nubes[i].posX -= velEscenario * deltaTime * gameVel * velNube;
+      nubes[i].style.left = nubes[i].posX + "px";
     }
-    .hud-logos img {
-      height: clamp(26px, 10vh, 40px);
-      width: auto;
-      background: rgba(255,255,255,.65);
-      border: 1px solid rgba(0,0,0,.06);
-      border-radius: 12px;
-      padding: 4px 8px;
-      box-shadow: 0 6px 16px rgba(0,0,0,.18);
-      filter: saturate(.95);
-    }
-    @media (max-height: 420px){
-      .hud-logos img{ height: clamp(22px, 9vh, 32px); background: rgba(255,255,255,.55); }
-    }
+  }
+}
 
-    /* Botón Retry */
-    .retry-wrap {
-      position: fixed; inset: 0; display: none; place-items: center;
-      z-index: 9999;
-      padding: max(12px, env(safe-area-inset-top)) max(12px, env(safe-area-inset-right)) max(12px, env(safe-area-inset-bottom)) max(12px, env(safe-area-inset-left));
-    }
-    .retry-wrap.show { display: grid; }
-    .btn-retry {
-      appearance:none;border:0;cursor:pointer;
-      padding:14px 20px;border-radius:16px;font-weight:900;color:#fff;
-      background: linear-gradient(135deg,#00c9b7,#9b5cf9);
-      box-shadow: 0 10px 26px rgba(155,92,249,.35);
-      font-size: clamp(14px, 2.8vw, 18px);
-    }
+/* ===== SCORE / QUIZ ===== */
+function GanarPuntos() {
+  score++; textoScore.innerText = score;
+  if (score == 5) { gameVel = 1.5; contenedor.classList.add("mediodia"); }
+  else if (score == 15) { gameVel = 2; contenedor.classList.add("tarde"); }
+  else if (score == WIN_SCORE) {
+    gameVel = 3; contenedor.classList.add("noche"); parado = true;
+    dino.classList.remove("dino-corriendo"); mostrarQuiz(); return;
+  }
+  suelo.style.animationDuration = 3 / gameVel + "s";
+}
 
-    /* Overlay Girar Pantalla */
-    .rotate-overlay {
-      position: fixed; inset: 0; display: none; place-items: center;
-      background: #111; color: #fff; z-index: 100000;
-      text-align: center; padding: 24px;
-    }
-    .rotate-card {
-      max-width: 520px; border-radius: 16px; padding: 22px 20px;
-      background: #1f2937; box-shadow: 0 20px 60px rgba(0,0,0,.45);
-    }
-    .rotate-title { font-size: 22px; font-weight: 900; margin: 0 0 6px; }
-    .rotate-sub { opacity:.85; margin: 0 0 10px; }
-    .rotate-emoji { font-size: 48px; margin: 10px 0 2px; }
+function GameOver() {
+  Estrellarse(); gameOver.style.display = "grid";
+  var wrap = document.getElementById("retryWrap"); if (wrap) wrap.classList.add("show");
+  try { window.scrollTo({ top: 0, behavior: "smooth" }); } catch (e) {}
+}
 
-    /* Comportamiento Vertical/Horizontal */
-    @media (orientation: portrait){
-      body:not(.quiz-mode) .rotate-overlay{ display: grid; }
-      #game, .retry-wrap{ display: none !important; }
-    }
-    @media (orientation: landscape){
-      body.quiz-mode #quizOverlay{ display: none !important; }
-      body.quiz-mode .rotate-overlay{ display: grid; }
-    }
+function DetectarColision() {
+  for (var i = 0; i < obstaculos.length; i++) {
+    if (obstaculos[i].posX > dinoPosX + dino.clientWidth) break;
+    if (IsCollision(dino, obstaculos[i], 10, 30, 15, 20)) GameOver();
+  }
+}
+function IsCollision(a, b, pt, pr, pb, pl) {
+  var A = a.getBoundingClientRect(), B = b.getBoundingClientRect();
+  return !(A.top + A.height - pb < B.top || A.top + pt > B.top + B.height ||
+           A.left + A.width - pr < B.left || A.left + pl > B.left + B.width);
+}
 
-    /* Quiz Overlay */
-    .quiz-overlay {
-      position:fixed; inset:0; display:none; place-items:center;
-      background:rgba(0,0,0,.45); z-index:10000;
-      padding:max(12px,env(safe-area-inset-top)) max(12px,env(safe-area-inset-right)) max(14px,env(safe-area-inset-bottom)) max(12px,env(safe-area-inset-left));
-      backdrop-filter:blur(2px);
-      overflow-y: auto !important;
-      overscroll-behavior: contain;
-      -webkit-overflow-scrolling: touch;
-      touch-action: auto;
-    }
-    .quiz-overlay.show { display:grid; }
+/* ===== QUIZ UI ===== */
+function mostrarQuiz() {
+  document.body.classList.add("quiz-mode");
+  try { if (screen.orientation && screen.orientation.unlock) screen.orientation.unlock(); } catch(e){}
+  setTimeout(() => {
+    try { if (screen.orientation && screen.orientation.lock) screen.orientation.lock("portrait-primary"); } catch(e){}
+  }, 50);
 
-    .quiz-card {
-      width:min(720px,92vw);
-      border-radius:18px;
-      background:linear-gradient(180deg,rgba(255,255,255,.92),rgba(255,255,255,.86));
-      border:1px solid rgba(0,0,0,.08);
-      box-shadow:0 20px 60px rgba(0,0,0,.35);
-      color:#111;
-      padding:clamp(16px,4.5vw,28px);
-      margin: 32px auto;
-    }
-    .quiz-title{font-size:clamp(18px,5vw,26px);font-weight:900;margin:0 0 8px;color:#2b2b2b;text-align:center}
-    .quiz-sub{text-align:center;margin:0 0 16px;color:#475569;font-size:clamp(13px,3.3vw,16px)}
-    .quiz-q{font-weight:800;font-size:clamp(15px,4vw,18px);margin:0 0 8px}
-    .quiz-options{display:grid;gap:10px;margin:12px 0 8px}
-    .quiz-opt{display:flex;gap:10px;align-items:flex-start;padding:10px 12px;border-radius:12px;background:#f3f4f6;border:1px solid #e5e7eb}
-    .quiz-opt input{margin-top:4px}
-    .quiz-actions{display:flex;flex-wrap:wrap;gap:10px;justify-content:center;margin-top:12px}
-    .btn-primary{appearance:none;border:0;cursor:pointer;padding:12px 16px;border-radius:12px;font-weight:900;color:#fff;background:linear-gradient(135deg,#00c9b7,#9b5cf9);box-shadow:0 10px 26px rgba(155,92,249,.35);min-width:180px;font-size:clamp(14px,3.6vw,16px)}
-    .btn-secondary{appearance:none;border:0;cursor:pointer;padding:12px 16px;border-radius:12px;font-weight:800;color:#334155;background:#e5e7eb;min-width:140px;font-size:clamp(14px,3.4vw,16px)}
-    .quiz-msg{text-align:center;margin-top:8px;font-weight:700}
-    .quiz-msg.ok{color:#059669}.quiz-msg.err{color:#dc2626}
-  </style>
-</head>
-<body>
+  if (!quizData) {
+    quizData = {
+      title: "¡Muy bien!", subtitle: "Responde para continuar:",
+      question: "¿Pregunta por defecto?", options: ["A", "B", "C", "D"], answerIndex: 3
+    };
+  }
 
-  <div class="rotate-overlay" aria-hidden="true">
-    <div class="rotate-card">
-      <div class="rotate-emoji">📲↔️</div>
-      <h3 class="rotate-title">Gira tu teléfono</h3>
-      <p class="rotate-sub">Este juego está optimizado para <strong>orientación horizontal</strong>. Durante el <strong>desafío final</strong> se requiere <strong>vertical</strong>.</p>
-    </div>
-  </div>
+  document.getElementById("quizTitle").textContent = quizData.title || "Pregunta final";
+  document.getElementById("quizSub").textContent = quizData.subtitle || "";
+  document.getElementById("quizQuestion").textContent = quizData.question || "";
 
-  <div class="contenedor" id="game">
-    <div class="stage">
-      <div class="hud-logos" aria-hidden="true">
-        <img src="Logo-Ag-14.png" alt="Agencia Digital Chiapas">
-        <img src="logo-sata.png" alt="SATA">
-        <img src="logo-much-nuevo1.png" alt="MUCH">
-      </div>
-      <div class="suelo"></div>
-      <div class="dino dino-corriendo"></div>
-      <div class="score">0</div>
-      <div class="game-over">GAME OVER</div>
-    </div>
-  </div>
+  var box = document.getElementById("quizOptions"); box.innerHTML = "";
+  quizAnswerIndex = Number(quizData.answerIndex) || 0;
 
-  <div class="retry-wrap" id="retryWrap">
-    <button class="btn-retry" id="btnRetry">🔁 Intentar de nuevo</button>
-  </div>
+  (quizData.options || []).forEach(function (txt, i) {
+    var label = document.createElement("label"); label.className = "quiz-opt";
+    label.innerHTML = '<input type="radio" name="q1" value="' + i + '"> <span>' + txt + "</span>";
+    box.appendChild(label);
+  });
 
-  <div id="quizOverlay" class="quiz-overlay" aria-hidden="true">
-    <div class="quiz-card" role="dialog" aria-modal="true">
-      <h3 id="quizTitle" class="quiz-title"></h3>
-      <p id="quizSub" class="quiz-sub"></p>
-      <p id="quizQuestion" class="quiz-q"></p>
-      <div id="quizOptions" class="quiz-options"></div>
-      <div class="quiz-actions">
-        <button id="btnQuizOk" class="btn-primary">Confirmar</button>
-        <button id="btnQuizCancel" class="btn-secondary">Cancelar</button>
-      </div>
-      <div id="quizMsg" class="quiz-msg" aria-live="polite"></div>
-    </div>
-  </div>
+  var o = document.getElementById("quizOverlay");
+  var msg = document.getElementById("quizMsg"); msg.textContent = ""; msg.className = "quiz-msg";
+  o.classList.add("show"); quizVisible = true;
+  try { window.scrollTo({ top: 0, behavior: "smooth" }); } catch (e) {}
+}
 
-  <audio id="jumpSound" src="jump.mp3" preload="auto"></audio>
+async function validarQuiz() {
+  var msg = document.getElementById("quizMsg");
+  var sel = document.querySelector('input[name="q1"]:checked');
+  
+  if (!sel) {
+    msg.textContent = "Selecciona una opción 😉"; msg.className = "quiz-msg err"; return;
+  }
 
-  <script type="module">
-    import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
-
-    const SUPABASE_URL = 'https://qwgaeorsymfispmtsbut.supabase.co';
-    const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InF3Z2Flb3JzeW1maXNwbXRzYnV0Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjIzODcyODUsImV4cCI6MjA3Nzk2MzI4NX0.FThZIIpz3daC9u8QaKyRTpxUeW0v4QHs5sHX2s1U1eo';
-
-    // Cliente global
-    window.supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+  if (Number(sel.value) === quizAnswerIndex) {
+    msg.textContent = "¡Correcto! Registrando..."; msg.className = "quiz-msg ok";
     
-    // ✅ ID EXACTO DE LA SALA "Juego Spinosaurio"
-    window.SALA_ID = '0b4f04b0-5196-473d-8689-55df5315df55';
-    
-    console.log("Supabase listo. Sala ID:", window.SALA_ID);
-  </script>
+    navigatingToRegistro = true; quizVisible = false;
+    document.getElementById("quizOverlay").classList.remove("show");
 
-  <script src="game.js" defer></script>
+    // REGISTRO DEL QUIZ GANADO
+    await registrarQuizEnSupabase(score);
 
-  <script>
-    document.addEventListener('dblclick', e => e.preventDefault(), {passive:false});
-    let lastTouchEnd = 0;
-    document.addEventListener('touchend', e => {
-      const now = Date.now();
-      if (now - lastTouchEnd <= 300) e.preventDefault();
-      lastTouchEnd = now;
-    }, {passive:false});
-    document.addEventListener('gesturestart', e => e.preventDefault(), {passive:false});
+    setTimeout(function () { window.location.href = "registro.html"; }, 400);
+  } else {
+    msg.textContent = "Incorrecto. Intenta de nuevo."; msg.className = "quiz-msg err";
+  }
+}
 
-    /* Lógica de registro cuando pierdes (Game Over) */
-    window.addEventListener('load', () => {
-      const scoreEl = document.querySelector('.score');
-      const gameOverEl = document.querySelector('.game-over');
-      let inicioPartida = new Date().toISOString();
-      let ultimaPartidaGuardada = null; // Para no repetir guardado
+function antiCheatGuard() {
+  if (navigatingToRegistro || !quizVisible) return;
+  try { document.getElementById("quizOverlay").classList.remove("show"); } catch (e) {}
+  location.replace("portada.html");
+}
+function blockShortcutsDuringQuiz(e) {
+  if (!quizVisible) return;
+  const k = (e.key || "").toLowerCase();
+  if ((e.ctrlKey || e.metaKey) && ["l","t","n","w","k","p","r"].includes(k)) {
+    e.preventDefault(); e.stopPropagation(); return false;
+  }
+}
 
-      function estaVisible(el) {
-        if (!el) return false;
-        return getComputedStyle(el).display !== 'none';
-      }
+/* ===== SUPABASE LOGIC ===== */
+async function registrarQuizEnSupabase(puntaje) {
+  // Usamos la conexión global creada en index.html
+  if (!window.supabase) {
+    console.warn("Supabase no está cargado.");
+    return;
+  }
 
-      setInterval(async () => {
-        const esGameOver = estaVisible(gameOverEl);
-        
-        if (esGameOver) {
-          // Si acaba de morir
-          const puntosTexto = scoreEl.textContent || '0';
-          const firma = puntosTexto + '-' + inicioPartida; // Identificador simple
+  try {
+    const ahora = new Date().toISOString();
+    // ✅ USA EL ID CORRECTO DEL SPINOSAURIO
+    const salaId = window.SALA_ID || '0b4f04b0-5196-473d-8689-55df5315df55'; 
 
-          if (ultimaPartidaGuardada !== firma) {
-            ultimaPartidaGuardada = firma;
-            
-            // REGISTRO EN SUPABASE
-            if (window.supabase) {
-              try {
-                // Usamos el ID del Spinosaurio definido arriba
-                const salaId = window.SALA_ID || '0b4f04b0-5196-473d-8689-55df5315df55';
+    const { data, error } = await window.supabase
+      .from("quizzes")
+      .insert({
+        sala_id: salaId,
+        puntaje_total: puntaje,  // Guarda el puntaje real del juego
+        num_correctas: 1,        // Ganó el quiz
+        started_at: ahora,
+        finished_at: ahora
+      })
+      .select("id")
+      .single();
 
-                await window.supabase.from('quizzes').insert([{
-                  sala_id: salaId,
-                  participante_id: null,
-                  started_at: inicioPartida,
-                  finished_at: new Date().toISOString(),
-                  puntaje_total: parseInt(puntosTexto) || 0,
-                  num_correctas: 0
-                }]);
-                console.log("💀 Game Over. Puntaje guardado:", puntosTexto);
-              } catch(e) { console.warn("Error guardando score", e); }
-            }
-          }
-        } else {
-            // Si está jugando de nuevo, reiniciamos el tiempo de inicio
-            if (ultimaPartidaGuardada && !esGameOver) {
-                inicioPartida = new Date().toISOString();
-            }
-        }
-      }, 500);
-    });
-  </script>
-</body>
-</html>
+    if (error) console.warn("Error insert Supabase:", error.message);
+    else {
+      console.log("¡Quiz guardado en sala Spinosaurio!");
+      try { localStorage.setItem("much_quiz_last_quiz_id", String(data.id)); } catch(_) {}
+    }
+  } catch(e) {
+    console.warn("Fallo conexión Supabase:", e);
+  }
+}
 
