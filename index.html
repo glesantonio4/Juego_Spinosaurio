@@ -334,18 +334,16 @@
 
     const SUPABASE_URL = 'https://qwgaeorsymfispmtsbut.supabase.co';
     const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InF3Z2Flb3JzeW1maXNwbXRzYnV0Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjIzODcyODUsImV4cCI6MjA3Nzk2MzI4NX0.FThZIIpz3daC9u8QaKyRTpxUeW0v4QHs5sHX2s1U1eo';
+
     // Cliente global
     window.supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
-
-    // ✅ ID EXACTO DE LA SALA "Juego Spinosaurio"
-    window.SALA_ID = '0b4f04b0-5196-473d-8689-55d5f315df55';
-
-    console.log("Supabase listo. Sala ID:", window.SALA_ID);
+    console.log("Supabase listo para registrar en intentos_juego.");
   </script>
 
   <script src="game.js" defer></script>
 
   <script>
+    /* Lógica de registro de intentos en tabla NUEVA 'intentos_juego' */
     document.addEventListener('dblclick', e => e.preventDefault(), { passive: false });
     let lastTouchEnd = 0;
     document.addEventListener('touchend', e => {
@@ -355,49 +353,46 @@
     }, { passive: false });
     document.addEventListener('gesturestart', e => e.preventDefault(), { passive: false });
 
-    /* Lógica de registro cuando pierdes (Game Over) */
     window.addEventListener('load', () => {
       const scoreEl = document.querySelector('.score');
       const gameOverEl = document.querySelector('.game-over');
       let inicioPartida = new Date().toISOString();
-      let ultimaPartidaGuardada = null; // Para no repetir guardado
+      let ultimaPartidaGuardada = null;
 
       function estaVisible(el) {
         if (!el) return false;
         return getComputedStyle(el).display !== 'none';
       }
 
+      // Revisamos el estado del juego cada medio segundo
       setInterval(async () => {
         const esGameOver = estaVisible(gameOverEl);
 
         if (esGameOver) {
           // Si acaba de morir
           const puntosTexto = scoreEl.textContent || '0';
-          const firma = puntosTexto + '-' + inicioPartida; // Identificador simple
+          const firma = puntosTexto + '-' + inicioPartida;
 
           if (ultimaPartidaGuardada !== firma) {
             ultimaPartidaGuardada = firma;
 
-            // REGISTRO EN SUPABASE
+            // REGISTRO EN LA NUEVA TABLA 'intentos_juego'
             if (window.supabase) {
               try {
-                // Usamos el ID del Spinosaurio definido arriba
-                const salaId = window.SALA_ID || '0b4f04b0-5196-473d-8689-55d5f315df55';
+                const puntajeFinal = parseInt(puntosTexto) || 0;
 
-                await window.supabase.from('quizzes').insert([{
-                  sala_id: salaId,
-                  participante_id: null,
-                  started_at: inicioPartida,
-                  finished_at: new Date().toISOString(),
-                  puntaje_total: parseInt(puntosTexto) || 0,
-                  num_correctas: 0
+                // Aquí guardamos en la tabla personalizada
+                await window.supabase.from('intentos_juego').insert([{
+                  puntaje: puntajeFinal
+                  // 'created_at' se genera automáticamente en la base de datos
                 }]);
-                console.log("💀 Game Over. Puntaje guardado:", puntosTexto);
-              } catch (e) { console.warn("Error guardando score", e); }
+
+                console.log(`✅ Game Over. Puntaje ${puntajeFinal} guardado en 'intentos_juego'.`);
+              } catch (e) { console.warn("Error guardando intento", e); }
             }
           }
         } else {
-          // Si está jugando de nuevo, reiniciamos el tiempo de inicio
+          // Si está jugando de nuevo (ya no es Game Over), reseteamos
           if (ultimaPartidaGuardada && !esGameOver) {
             inicioPartida = new Date().toISOString();
           }
