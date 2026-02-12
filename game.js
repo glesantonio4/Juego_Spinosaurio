@@ -11,17 +11,17 @@ async function requestFull() {
     if (!document.fullscreenElement && el.requestFullscreen) {
       //await el.requestFullscreen();
     }
-  } catch (e) {}
+  } catch (e) { }
 }
 async function lockLandscape() {
   try {
     if (screen.orientation && screen.orientation.lock) {
       await screen.orientation.lock("landscape");
     }
-  } catch (e) {}
+  } catch (e) { }
 }
 function tryLandscapeLock() {
-  requestFull().then(lockLandscape).catch(() => {});
+  requestFull().then(lockLandscape).catch(() => { });
 }
 
 /* ====== LOOP BASE ====== */
@@ -84,7 +84,7 @@ function Start() {
   document.getElementById("btnQuizCancel").addEventListener("click", function () {
     navigatingToRegistro = true;
     quizVisible = false;
-    try { document.getElementById("quizOverlay").classList.remove("show"); } catch(e){}
+    try { document.getElementById("quizOverlay").classList.remove("show"); } catch (e) { }
     document.body.classList.remove("quiz-mode");
     location.replace("portada.html");
   });
@@ -146,7 +146,7 @@ function Update() {
 function Saltar() {
   if (dinoPosY === sueloY) {
     saltando = true; velY = impulso; dino.classList.remove("dino-corriendo");
-    if (jumpSound) { jumpSound.currentTime = 0; jumpSound.play().catch(() => {}); }
+    if (jumpSound) { jumpSound.currentTime = 0; jumpSound.play().catch(() => { }); }
   }
 }
 function MoverDinosaurio() {
@@ -225,27 +225,27 @@ function GanarPuntos() {
 function GameOver() {
   Estrellarse(); gameOver.style.display = "grid";
   var wrap = document.getElementById("retryWrap"); if (wrap) wrap.classList.add("show");
-  try { window.scrollTo({ top: 0, behavior: "smooth" }); } catch (e) {}
+  try { window.scrollTo({ top: 0, behavior: "smooth" }); } catch (e) { }
 }
 
 function DetectarColision() {
   for (var i = 0; i < obstaculos.length; i++) {
     if (obstaculos[i].posX > dinoPosX + dino.clientWidth) break;
-    if (IsCollision(dino, obstaculos[i], 10, 30, 15, 20)) GameOver();
+    if (IsCollision(dino, obstaculos[i], 10, 45, 10, 25)) GameOver();
   }
 }
 function IsCollision(a, b, pt, pr, pb, pl) {
   var A = a.getBoundingClientRect(), B = b.getBoundingClientRect();
   return !(A.top + A.height - pb < B.top || A.top + pt > B.top + B.height ||
-           A.left + A.width - pr < B.left || A.left + pl > B.left + B.width);
+    A.left + A.width - pr < B.left || A.left + pl > B.left + B.width);
 }
 
 /* ===== QUIZ UI ===== */
 function mostrarQuiz() {
   document.body.classList.add("quiz-mode");
-  try { if (screen.orientation && screen.orientation.unlock) screen.orientation.unlock(); } catch(e){}
+  try { if (screen.orientation && screen.orientation.unlock) screen.orientation.unlock(); } catch (e) { }
   setTimeout(() => {
-    try { if (screen.orientation && screen.orientation.lock) screen.orientation.lock("portrait-primary"); } catch(e){}
+    try { if (screen.orientation && screen.orientation.lock) screen.orientation.lock("portrait-primary"); } catch (e) { }
   }, 50);
 
   if (!quizData) {
@@ -271,20 +271,20 @@ function mostrarQuiz() {
   var o = document.getElementById("quizOverlay");
   var msg = document.getElementById("quizMsg"); msg.textContent = ""; msg.className = "quiz-msg";
   o.classList.add("show"); quizVisible = true;
-  try { window.scrollTo({ top: 0, behavior: "smooth" }); } catch (e) {}
+  try { window.scrollTo({ top: 0, behavior: "smooth" }); } catch (e) { }
 }
 
 async function validarQuiz() {
   var msg = document.getElementById("quizMsg");
   var sel = document.querySelector('input[name="q1"]:checked');
-  
+
   if (!sel) {
     msg.textContent = "Selecciona una opción 😉"; msg.className = "quiz-msg err"; return;
   }
 
   if (Number(sel.value) === quizAnswerIndex) {
     msg.textContent = "¡Correcto! Registrando..."; msg.className = "quiz-msg ok";
-    
+
     navigatingToRegistro = true; quizVisible = false;
     document.getElementById("quizOverlay").classList.remove("show");
 
@@ -299,13 +299,13 @@ async function validarQuiz() {
 
 function antiCheatGuard() {
   if (navigatingToRegistro || !quizVisible) return;
-  try { document.getElementById("quizOverlay").classList.remove("show"); } catch (e) {}
+  try { document.getElementById("quizOverlay").classList.remove("show"); } catch (e) { }
   location.replace("portada.html");
 }
 function blockShortcutsDuringQuiz(e) {
   if (!quizVisible) return;
   const k = (e.key || "").toLowerCase();
-  if ((e.ctrlKey || e.metaKey) && ["l","t","n","w","k","p","r"].includes(k)) {
+  if ((e.ctrlKey || e.metaKey) && ["l", "t", "n", "w", "k", "p", "r"].includes(k)) {
     e.preventDefault(); e.stopPropagation(); return false;
   }
 }
@@ -321,7 +321,7 @@ async function registrarQuizEnSupabase(puntaje) {
   try {
     const ahora = new Date().toISOString();
     // ✅ USA EL ID CORRECTO DEL SPINOSAURIO
-    const salaId = window.SALA_ID || '0b4f04b0-5196-473d-8689-55d5f315df55'; 
+    const salaId = window.SALA_ID || '0b4f04b0-5196-473d-8689-55d5f315df55';
 
     const { data, error } = await window.supabase
       .from("quizzes")
@@ -338,9 +338,9 @@ async function registrarQuizEnSupabase(puntaje) {
     if (error) console.warn("Error insert Supabase:", error.message);
     else {
       console.log("¡Quiz guardado en sala Spinosaurio!");
-      try { localStorage.setItem("much_quiz_last_quiz_id", String(data.id)); } catch(_) {}
+      try { localStorage.setItem("much_quiz_last_quiz_id", String(data.id)); } catch (_) { }
     }
-  } catch(e) {
+  } catch (e) {
     console.warn("Fallo conexión Supabase:", e);
   }
 }
