@@ -21,7 +21,6 @@ body {
   padding:
     max(8px, env(safe-area-inset-top)) max(8px, env(safe-area-inset-right)) max(16px, env(safe-area-inset-bottom)) max(8px, env(safe-area-inset-left));
   overflow-x: hidden;
-  /* evita scroll lateral en landscape */
 }
 
 /* ===== Franja de logos ===== */
@@ -40,7 +39,6 @@ body {
   height: auto;
   width: clamp(90px, 24vw, 150px);
   background: #ffffffcc;
-  /* fondito legible */
   border: 1px solid rgba(0, 0, 0, .06);
   border-radius: 12px;
   padding: 6px 10px;
@@ -72,7 +70,6 @@ body {
 .contenedor {
   width: min(920px, 96vw);
   height: 280px;
-  /* alto normal (vertical) */
   margin: 4px auto 0;
   position: relative;
   background: linear-gradient(#b7d6c7, transparent) #ffe2d1;
@@ -102,15 +99,18 @@ body {
   background-color: #aca8c7;
 }
 
-/* ===== Dino ===== */
+/* ===== Dino (CORREGIDO PARA QUE NO SE VEA RECORTADO) ===== */
 .dino {
-  width: 122px;
+  /* ANTES: 88px -> AHORA: 124px (Frame completo del sprite) */
+  width: 124px;
   height: 90px;
   position: absolute;
   bottom: 22px;
-  left: 42px;
+  left: 24px;
+  /* Ajustado de 42px -> 24px (compensando los 18px que antes se perdían) */
   z-index: 2;
-  background: url("saurio.png") no-repeat -1px 0;
+  /* Eliminamos el offset de -18px para que la cola se vea desde el inicio */
+  background: url("pinosaurio.png") no-repeat 0 0;
   background-size: 496px 90px;
 }
 
@@ -119,7 +119,8 @@ body {
 }
 
 .dino-estrellado {
-  background-position-x: -373px;
+  /* Ajuste para el sprite de muerto (Frame 4) */
+  background-position-x: -372px;
 }
 
 /* Suelo */
@@ -183,7 +184,6 @@ body {
   position: absolute;
   inset: 0;
   display: none;
-  /* oculto al inicio; el JS lo pone en grid */
   place-items: center;
   color: #7e928b;
   font-size: clamp(18px, 6vw, 30px);
@@ -233,14 +233,16 @@ body {
   transform: translateY(1px);
 }
 
-/* Animación del dino */
+/* Animación del dino (CORREGIDA PARA FRAME 124px) */
 @keyframes animarDino {
   from {
-    background-position-x: -125px;
+    /* Salto al Frame 2 */
+    background-position-x: -124px;
   }
 
   to {
-    background-position-x: -373px;
+    /* Salto al Frame 4 (muerto), con steps(2) pasa por Frame 2 y 3 */
+    background-position-x: -372px;
   }
 }
 
@@ -371,15 +373,13 @@ body {
   }
 }
 
-/* ❌ Quitar recorte del sprite en horizontal (antes tenías max-height) */
-/* Mantén SIEMPRE la altura real del sprite para que no se pierdan las patas */
 @media (orientation: landscape) {
   .dino {
     height: 90px !important;
   }
 }
 
-/* --- Orden correcto de capas para que el suelo no tape al dino --- */
+/* --- Orden correcto de capas --- */
 .stage {
   position: relative;
 }

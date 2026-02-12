@@ -47,7 +47,7 @@ function Loop() {
 /* ===== GAME STATE ===== */
 var sueloY = 24;
 var velY = 0, impulso = 900, gravedad = 2500;
-var dinoPosX = 42, dinoPosY = sueloY;
+var dinoPosX = 24, dinoPosY = sueloY;
 var sueloX = 0, velEscenario = 1280 / 3, gameVel = 1, score = 0;
 var parado = false, saltando = false;
 var tiempoHastaObstaculo = 2, tiempoObstaculoMin = 0.7, tiempoObstaculoMax = 1.8, obstaculoPosY = 16, obstaculos = [];
@@ -231,7 +231,11 @@ function GameOver() {
 function DetectarColision() {
   for (var i = 0; i < obstaculos.length; i++) {
     if (obstaculos[i].posX > dinoPosX + dino.clientWidth) break;
-    if (IsCollision(dino, obstaculos[i], 10, 45, 10, 25)) GameOver();
+
+    // CORRECCIÓN DE HITBOX: Al hacer al dino más ancho visualmente (124px), 
+    // aumentamos los márgenes laterales para que la colisión siga siendo en el cuerpo.
+    // (Márgenes: Top, Right, Bottom, Left)
+    if (IsCollision(dino, obstaculos[i], 10, 35, 10, 45)) GameOver();
   }
 }
 function IsCollision(a, b, pt, pr, pb, pl) {
@@ -344,5 +348,3 @@ async function registrarQuizEnSupabase(puntaje) {
     console.warn("Fallo conexión Supabase:", e);
   }
 }
-
-

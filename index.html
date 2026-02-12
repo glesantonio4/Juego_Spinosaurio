@@ -290,7 +290,8 @@
       <div class="rotate-emoji">📲↔️</div>
       <h3 class="rotate-title">Gira tu teléfono</h3>
       <p class="rotate-sub">Este juego está optimizado para <strong>orientación horizontal</strong>. Durante el
-        <strong>desafío final</strong> se requiere <strong>vertical</strong>.</p>
+        <strong>desafío final</strong> se requiere <strong>vertical</strong>.
+      </p>
     </div>
   </div>
 
@@ -337,9 +338,6 @@
     window.supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
     // ✅ ID EXACTO DE LA SALA "Juego Spinosaurio"
-    window.supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
-
-    // ✅ ID QUE TÚ ME MOSTRASTE EN LA FOTO (EL REAL)
     window.SALA_ID = '0b4f04b0-5196-473d-8689-55d5f315df55';
 
     console.log("Supabase listo. Sala ID:", window.SALA_ID);
@@ -384,7 +382,7 @@
             if (window.supabase) {
               try {
                 // Usamos el ID del Spinosaurio definido arriba
-                const salaId = window.SALA_ID || '0b4f04b0-5196-473d-8689-55df5315df55';
+                const salaId = window.SALA_ID || '0b4f04b0-5196-473d-8689-55d5f315df55';
 
                 await window.supabase.from('quizzes').insert([{
                   sala_id: salaId,
