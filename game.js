@@ -45,12 +45,15 @@ function Loop() {
 }
 
 /* ===== GAME STATE ===== */
-var sueloY = 24;
+var sueloY = 2;
+
+
 var velY = 0, impulso = 900, gravedad = 2500;
 var dinoPosX = 24, dinoPosY = sueloY;
 var sueloX = 0, velEscenario = 1280 / 3, gameVel = 1, score = 0;
 var parado = false, saltando = false;
 var tiempoHastaObstaculo = 2, tiempoObstaculoMin = 0.7, tiempoObstaculoMax = 1.8, obstaculoPosY = 16, obstaculos = [];
+
 var tiempoHastaNube = 0.5, tiempoNubeMin = 0.7, tiempoNubeMax = 2.7, maxNubeY = 270, minNubeY = 100, nubes = [], velNube = 0.5;
 
 var contenedor, dino, textoScore, suelo, gameOver;
@@ -75,8 +78,12 @@ function Start() {
 
   document.addEventListener("keydown", HandleKeyDown, { passive: false });
   contenedor.addEventListener("click", function (e) { e.preventDefault(); tryLandscapeLock(); Saltar(); }, { passive: false });
-  contenedor.addEventListener("touchstart", function (e) { e.preventDefault(); tryLandscapeLock(); Saltar(); }, { passive: false });
+  contenedor.addEventListener("touchstart", function (e) {
+    e.preventDefault(); tryLandscapeLock();
+    if (!parado) Saltar();
+  }, { passive: false });
   window.addEventListener("pointerdown", GlobalTap, { passive: false });
+
 
   document.getElementById("btnRetry").addEventListener("click", function () { location.reload(); });
   document.getElementById("btnQuizOk").addEventListener("click", validarQuiz);
@@ -130,6 +137,7 @@ function HandleKeyDown(ev) {
   }
 }
 
+
 /* ===== UPDATE ===== */
 function Update() {
   if (parado) return;
@@ -149,6 +157,7 @@ function Saltar() {
     if (jumpSound) { jumpSound.currentTime = 0; jumpSound.play().catch(() => { }); }
   }
 }
+
 function MoverDinosaurio() {
   dinoPosY += velY * deltaTime;
   if (dinoPosY < sueloY) TocarSuelo();
@@ -177,9 +186,15 @@ function DecidirCrearNubes() {
   if (tiempoHastaNube <= 0) CrearNube();
 }
 function CrearObstaculo() {
-  var o = document.createElement("div"); contenedor.appendChild(o);
-  o.classList.add("cactus"); if (Math.random() > 0.5) o.classList.add("cactus2");
-  o.posX = contenedor.clientWidth; o.style.left = o.posX + "px"; obstaculos.push(o);
+  var stage = document.querySelector(".stage");
+  var o = document.createElement("div"); stage.appendChild(o);
+  o.classList.add("cactus");
+  o.classList.add("cactus-suelo");
+
+  if (Math.random() > 0.5) o.classList.add("cactus2");
+  else o.classList.add("cactus1");
+
+  o.posX = stage.clientWidth; o.style.left = o.posX + "px"; obstaculos.push(o);
   tiempoHastaObstaculo = tiempoObstaculoMin + (Math.random() * (tiempoObstaculoMax - tiempoObstaculoMin)) / gameVel;
 }
 function CrearNube() {
@@ -232,10 +247,12 @@ function DetectarColision() {
   for (var i = 0; i < obstaculos.length; i++) {
     if (obstaculos[i].posX > dinoPosX + dino.clientWidth) break;
 
-    // CORRECCIÓN DE HITBOX: Al hacer al dino más ancho visualmente (124px), 
-    // aumentamos los márgenes laterales para que la colisión siga siendo en el cuerpo.
-    // (Márgenes: Top, Right, Bottom, Left)
-    if (IsCollision(dino, obstaculos[i], 10, 35, 10, 45)) GameOver();
+    var obs = obstaculos[i];
+    // Hitbox de PRECISIÓN: Ajustada para ignorar el hocico y la cola larga
+    // pl: izquierda (cola), pr: derecha (hocico), pt: arriba, pb: abajo
+    var pt = 40, pr = 80, pb = 10, pl = 80;
+
+    if (IsCollision(dino, obs, pt, pr, pb, pl)) GameOver();
   }
 }
 function IsCollision(a, b, pt, pr, pb, pl) {
@@ -281,6 +298,13 @@ function mostrarQuiz() {
 async function validarQuiz() {
   var msg = document.getElementById("quizMsg");
   var sel = document.querySelector('input[name="q1"]:checked');
+  var btnOk = document.getElementById("btnQuizOk");
+
+  // Si el botón ya dice "Volver a jugar", recargamos
+  if (btnOk.textContent === "Volver a jugar") {
+    location.reload();
+    return;
+  }
 
   if (!sel) {
     msg.textContent = "Selecciona una opción 😉"; msg.className = "quiz-msg err"; return;
@@ -297,7 +321,14 @@ async function validarQuiz() {
 
     setTimeout(function () { window.location.href = "registro.html"; }, 400);
   } else {
-    msg.textContent = "Incorrecto. Intenta de nuevo."; msg.className = "quiz-msg err";
+    msg.textContent = "Incorrecto. ¡Vuelve a jugar!"; msg.className = "quiz-msg err";
+
+    // Deshabilitar todos los inputs para que no pueda elegir otra
+    var inputs = document.querySelectorAll('input[name="q1"]');
+    inputs.forEach(inp => inp.disabled = true);
+
+    // Cambiar el botón para que sea de reinicio
+    btnOk.textContent = "Volver a jugar";
   }
 }
 

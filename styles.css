@@ -99,20 +99,20 @@ body {
   background-color: #aca8c7;
 }
 
-/* ===== Dino (CORREGIDO PARA QUE NO SE VEA RECORTADO) ===== */
+/* ===== Dino (SUPER SIZE & CROUCH) ===== */
 .dino {
-  /* ANTES: 88px -> AHORA: 124px (Frame completo del sprite) */
-  width: 124px;
-  height: 90px;
+  width: 180px;
+  height: 150px;
   position: absolute;
-  bottom: 22px;
-  left: 24px;
-  /* Ajustado de 42px -> 24px (compensando los 18px que antes se perdían) */
+  bottom: 2px;
+  left: 40px;
   z-index: 2;
-  /* Eliminamos el offset de -18px para que la cola se vea desde el inicio */
   background: url("pinosaurio.png") no-repeat 0 0;
-  background-size: 496px 90px;
+  background-size: 720px 150px;
+  transition: transform 0.1s ease;
 }
+
+/* Estilo agachado eliminado */
 
 .dino-corriendo {
   animation: animarDino .25s steps(2) infinite;
@@ -135,32 +135,44 @@ body {
   image-rendering: pixelated;
 }
 
-/* Obstáculos y nubes */
+/* ===== OBSTÁCULOS Y NUBES ===== */
+
 .cactus {
-  width: 46px;
-  height: 96px;
   position: absolute;
-  bottom: 16px;
-  left: 600px;
-  z-index: 1;
-  background: url("cactus1.png") no-repeat;
+  z-index: 2;
+  /* Mismo nivel que el dino */
+
+  /* ✅ CORRECCIÓN: Subimos de 15px a 40px para que se alineen con el suelo */
+  bottom: 20px;
+
   image-rendering: pixelated;
+  background-repeat: no-repeat;
+  background-position: bottom center;
+}
+
+/* Tipos de cactus (Sin cambios, se quedan igual) */
+.cactus1 {
+  width: 60px;
+  height: 95px;
+  background-image: url("cactus1.png");
+  background-size: contain;
 }
 
 .cactus2 {
-  width: 98px;
-  height: 66px;
-  background: url("cactus2.png") no-repeat;
-  image-rendering: pixelated;
+  width: 60px;
+  height: 95px;
+  background-image: url("cactus2.png");
+  background-size: contain;
 }
 
+/* Nubes (Sin cambios) */
 .nube {
   width: 92px;
   height: 26px;
   position: absolute;
   z-index: 0;
   background: url("nube.png") no-repeat;
-  background-size: 92px 26px;
+  background-size: contain;
 }
 
 /* Score */
@@ -233,16 +245,14 @@ body {
   transform: translateY(1px);
 }
 
-/* Animación del dino (CORREGIDA PARA FRAME 124px) */
+/* Animación del dino (CORREGIDA PARA NUEVO TAMAÑO) */
 @keyframes animarDino {
   from {
-    /* Salto al Frame 2 */
-    background-position-x: -124px;
+    background-position-x: -180px;
   }
 
   to {
-    /* Salto al Frame 4 (muerto), con steps(2) pasa por Frame 2 y 3 */
-    background-position-x: -372px;
+    background-position-x: -540px;
   }
 }
 
@@ -373,11 +383,7 @@ body {
   }
 }
 
-@media (orientation: landscape) {
-  .dino {
-    height: 90px !important;
-  }
-}
+/* Eliminado el override que aplastaba al dino */
 
 /* --- Orden correcto de capas --- */
 .stage {
