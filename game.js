@@ -24,6 +24,13 @@ function tryLandscapeLock() {
   requestFull().then(lockLandscape).catch(() => { });
 }
 
+function getMexicoTime() {
+  const ahora = new Date();
+  const offsetMexico = ahora.getTimezoneOffset() * 60000;
+  const localTime = new Date(ahora.getTime() - offsetMexico);
+  return localTime.toISOString();
+}
+
 /* ====== LOOP BASE ====== */
 var time = new Date(), deltaTime = 0;
 if (document.readyState === "complete" || document.readyState === "interactive") {
@@ -346,6 +353,45 @@ function blockShortcutsDuringQuiz(e) {
 }
 
 /* ===== SUPABASE LOGIC ===== */
+
+async function ensureParticipanteId() {
+  const sb = window.supabase;
+  if (!sb) return null;
+
+  const existingId = sessionStorage.getItem("usuario_id");
+  if (existingId) return existingId;
+
+  const randomSuffix = Math.floor(Math.random() * 999999);
+  try {
+    console.log("Creando jugador temporal en Ganadores...");
+    const { data, error } = await sb
+      .from('Ganadores')
+      .insert([
+        {
+          nombre: 'Visitante Spinosaurio',
+          correo: `visitante.${randomSuffix}@much.mx`,
+          telefono: '0000000000',
+          folio: 'V-' + randomSuffix,
+          valido_desde: getMexicoTime()
+        }
+      ])
+      .select('id')
+      .single();
+
+    if (error) {
+      console.warn("Fallback de participante...", error.message);
+      const { data: fallback } = await sb.from('Ganadores').select('id').limit(1);
+      return fallback?.[0]?.id || null;
+    }
+
+    console.log("Jugador temporal creado con ID:", data.id);
+    sessionStorage.setItem("usuario_id", data.id);
+    return data.id;
+  } catch (e) {
+    console.warn("Error en ensureParticipanteId:", e);
+    return null;
+  }
+}
 async function registrarQuizEnSupabase(puntaje) {
   // Usamos la conexión global creada en index.html
   if (!window.supabase) {
@@ -354,18 +400,23 @@ async function registrarQuizEnSupabase(puntaje) {
   }
 
   try {
-    const ahora = new Date().toISOString();
+    const ahora = getMexicoTime();
     // ✅ USA EL ID CORRECTO DEL SPINOSAURIO
     const salaId = window.SALA_ID || '0b4f04b0-5196-473d-8689-55d5f315df55';
+
+    // Aseguramos que el participante exista
+    const participante_id = await ensureParticipanteId();
 
     const { data, error } = await window.supabase
       .from("quizzes")
       .insert({
         sala_id: salaId,
+        participante_id: participante_id, // <--- VÍNCULO AÑADIDO
         puntaje_total: puntaje,  // Guarda el puntaje real del juego
         num_correctas: 1,        // Ganó el quiz
         started_at: ahora,
-        finished_at: ahora
+        finished_at: ahora,
+        estatus: 'finalizado'
       })
       .select("id")
       .single();
@@ -373,7 +424,7 @@ async function registrarQuizEnSupabase(puntaje) {
     if (error) console.warn("Error insert Supabase:", error.message);
     else {
       console.log("¡Quiz guardado en sala Spinosaurio!");
-      try { localStorage.setItem("much_quiz_last_quiz_id", String(data.id)); } catch (_) { }
+      try { localStorage.setItem("much_quiz_db_id", String(data.id)); } catch (_) { }
     }
   } catch (e) {
     console.warn("Fallo conexión Supabase:", e);
