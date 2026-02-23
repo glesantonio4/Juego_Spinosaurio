@@ -298,6 +298,13 @@
     const qs = new URLSearchParams(location.search);
     const salaSlug = qs.get('sala') || 'energia';
 
+    function getMexicoTime() {
+      const ahora = new Date();
+      const offsetMexico = ahora.getTimezoneOffset() * 60000;
+      const localTime = new Date(ahora.getTime() - offsetMexico);
+      return localTime.toISOString();
+    }
+
     // ---------- Validadores ----------
     const reNombre = /^[A-Za-zÁÉÍÓÚÜÑáéíóúüñ]+(?:[ \t]+[A-Za-zÁÉÍÓÚÜÑáéíóúüñ'.-]+){1,}$/;
     const reEmail = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/i;
@@ -346,9 +353,9 @@
         // 1. Insertar el GANADOR con datos completos
         const folioNew = prizeData.folio || ('MUCH-' + Math.random().toString(36).substring(2, 8).toUpperCase());
 
-        // Calcular vigencia (30 días por defecto)
-        const validUntil = new Date();
-        validUntil.setDate(validUntil.getDate() + 30);
+        const ahoraLocal = getMexicoTime();
+        // Calcular vigencia (30 días por defecto) basándonos en la hora local ajustada
+        const validUntil = new Date(new Date(ahoraLocal).getTime() + (30 * 24 * 60 * 60 * 1000));
 
         const { data: winnerData, error: winnerError } = await supabaseClient
           .from('Ganadores')
@@ -357,7 +364,7 @@
             correo,
             telefono,
             folio: folioNew,
-            valido_desde: new Date().toISOString(),
+            valido_desde: ahoraLocal,
             valido_hasta: validUntil.toISOString(),
             estatus: 'activo',
             tipo_entrada: prizeData.label || 'Premio',
@@ -395,7 +402,7 @@
             updatePayload.puntaje_total = qData.puntaje_total;
             updatePayload.num_correctas = qData.num_correctas;
             updatePayload.num_preguntas = qData.num_preguntas;
-            updatePayload.finished_at = qData.finished_at || new Date().toISOString();
+            updatePayload.finished_at = qData.finished_at || getMexicoTime();
           }
 
           const { error: quizUpdateError } = await supabaseClient

@@ -101,48 +101,114 @@
       font-size: clamp(14px, 2.8vw, 18px);
     }
 
-    /* Overlay Girar Pantalla */
-    .rotate-overlay {
+    /* ====== NUEVOS ESTILOS DE LA PORTADA INTEGRADA ====== */
+    .portada-overlay {
       position: fixed;
       inset: 0;
-      display: none;
-      place-items: center;
-      background: #111;
-      color: #fff;
+      background: linear-gradient(135deg, #1f2937, #111827);
       z-index: 100000;
+      display: none;
+      /* Oculto por defecto, se muestra con la clase .show */
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+    }
+
+    .portada-overlay.show {
+      display: flex;
+    }
+
+    .portada-top-logos {
+      position: absolute;
+      top: 40px;
+      width: 100%;
+      max-width: 500px;
+      display: flex;
+      justify-content: space-between;
+      padding: 0 30px;
+      box-sizing: border-box;
+    }
+
+    .portada-top-logos img {
+      height: clamp(35px, 8vh, 50px);
+      background: #fff;
+      border-radius: 12px;
+      padding: 6px 12px;
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+      object-fit: contain;
+    }
+
+    .portada-card {
+      background: linear-gradient(180deg, #6c9c93, #38bdf8);
+      border: 1px solid rgba(255, 255, 255, 0.3);
+      border-radius: 24px;
+      padding: 40px 24px;
       text-align: center;
-      padding: 24px;
+      max-width: 480px;
+      width: 100%;
+      box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5), inset 0 2px 10px rgba(255, 255, 255, 0.2);
+      color: white;
+      margin-top: 60px;
     }
 
-    .rotate-card {
-      max-width: 520px;
-      border-radius: 16px;
-      padding: 22px 20px;
-      background: #1f2937;
-      box-shadow: 0 20px 60px rgba(0, 0, 0, .45);
+    .portada-much-logo {
+      width: 180px;
+      max-width: 60%;
+      margin: 0 auto 20px;
+      display: block;
+      filter: drop-shadow(0 4px 6px rgba(0, 0, 0, 0.2));
     }
 
-    .rotate-title {
-      font-size: 22px;
+    .portada-title {
+      font-size: clamp(28px, 8vw, 42px);
       font-weight: 900;
-      margin: 0 0 6px;
+      line-height: 1.1;
+      margin: 0 0 15px;
+      text-shadow: 0 4px 10px rgba(0, 0, 0, 0.3);
+      letter-spacing: 1px;
+      font-family: 'Arial Black', sans-serif;
     }
 
-    .rotate-sub {
-      opacity: .85;
-      margin: 0 0 10px;
+    .portada-sub {
+      font-size: clamp(16px, 4vw, 20px);
+      margin: 0 0 30px;
+      font-weight: 500;
+      text-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
     }
 
-    .rotate-emoji {
-      font-size: 48px;
-      margin: 10px 0 2px;
+    .btn-play-portada {
+      background: linear-gradient(90deg, #4f46e5, #3b82f6);
+      color: white;
+      border: none;
+      padding: 16px 24px;
+      font-size: clamp(18px, 5vw, 24px);
+      font-weight: 900;
+      border-radius: 16px;
+      cursor: pointer;
+      box-shadow: 0 8px 25px rgba(59, 130, 246, 0.6);
+      width: 80%;
+      max-width: 300px;
+      margin: 0 auto 25px;
+      display: block;
+      transition: transform 0.1s;
     }
+
+    .btn-play-portada:active {
+      transform: scale(0.96);
+    }
+
+    .portada-tips {
+      font-size: clamp(11px, 3vw, 14px);
+      opacity: 0.9;
+      margin: 0;
+      font-weight: 500;
+    }
+
+    /* ==================================================== */
 
     /* Comportamiento Vertical/Horizontal */
     @media (orientation: portrait) {
-      body:not(.quiz-mode) .rotate-overlay {
-        display: grid;
-      }
 
       #game,
       .retry-wrap {
@@ -153,10 +219,6 @@
     @media (orientation: landscape) {
       body.quiz-mode #quizOverlay {
         display: none !important;
-      }
-
-      body.quiz-mode .rotate-overlay {
-        display: grid;
       }
     }
 
@@ -285,13 +347,22 @@
 
 <body>
 
-  <div class="rotate-overlay" aria-hidden="true">
-    <div class="rotate-card">
-      <div class="rotate-emoji">📲↔️</div>
-      <h3 class="rotate-title">Gira tu teléfono</h3>
-      <p class="rotate-sub">Este juego está optimizado para <strong>orientación horizontal</strong>. Durante el
-        <strong>desafío final</strong> se requiere <strong>vertical</strong>.
-      </p>
+  <div id="portadaOverlay" class="portada-overlay show">
+
+    <div class="portada-top-logos">
+      <img src="Logo-Ag-14.png" alt="Gobierno de Chiapas">
+      <img src="logo-sata.png" alt="SATA">
+    </div>
+
+    <div class="portada-card">
+      <img src="logo-much-nuevo1.png" alt="MUCH" class="portada-much-logo">
+
+      <h1 class="portada-title">SPINOSAURUS<br>RUNNER</h1>
+      <p class="portada-sub">Salta los cactus, acumula puntos y ¡reclama tu premio! 🦕</p>
+
+      <button id="btnJugarPortada" class="btn-play-portada">Jugar ahora 🦕</button>
+
+      <p class="portada-tips">Tip: toca cualquier parte de la pantalla para saltar • evita los cactus</p>
     </div>
   </div>
 
@@ -359,6 +430,13 @@
       let inicioPartida = new Date().toISOString();
       let ultimaPartidaGuardada = null;
 
+      function getMexicoTime() {
+        const ahora = new Date();
+        const offsetMexico = ahora.getTimezoneOffset() * 60000;
+        const localTime = new Date(ahora.getTime() - offsetMexico);
+        return localTime.toISOString();
+      }
+
       function estaVisible(el) {
         if (!el) return false;
         return getComputedStyle(el).display !== 'none';
@@ -383,8 +461,8 @@
 
                 // Aquí guardamos en la tabla personalizada
                 await window.supabase.from('intentos_juego').insert([{
-                  puntaje: puntajeFinal
-                  // 'created_at' se genera automáticamente en la base de datos
+                  puntaje: puntajeFinal,
+                  created_at: getMexicoTime()
                 }]);
 
                 console.log(`✅ Game Over. Puntaje ${puntajeFinal} guardado en 'intentos_juego'.`);

@@ -1,29 +1,4 @@
-/* Redirección a portada si no viene con ?start=1 */
-(function () {
-  var qp = new URLSearchParams(location.search);
-  if (qp.get("start") !== "1") location.replace("portada.html");
-})();
-
-/* ===== Intento de forzar LANDSCAPE ===== */
-async function requestFull() {
-  try {
-    const el = document.documentElement;
-    if (!document.fullscreenElement && el.requestFullscreen) {
-      //await el.requestFullscreen();
-    }
-  } catch (e) { }
-}
-async function lockLandscape() {
-  try {
-    if (screen.orientation && screen.orientation.lock) {
-      await screen.orientation.lock("landscape");
-    }
-  } catch (e) { }
-}
-function tryLandscapeLock() {
-  requestFull().then(lockLandscape).catch(() => { });
-}
-
+/* ===== Funciones de Tiempo y Utilidades ===== */
 function getMexicoTime() {
   const ahora = new Date();
   const offsetMexico = ahora.getTimezoneOffset() * 60000;
@@ -31,37 +6,15 @@ function getMexicoTime() {
   return localTime.toISOString();
 }
 
-/* ====== LOOP BASE ====== */
+/* ====== LOOP BASE Y VARIABLES GLOBALES ====== */
 var time = new Date(), deltaTime = 0;
-if (document.readyState === "complete" || document.readyState === "interactive") {
-  setTimeout(Init, 1);
-} else {
-  document.addEventListener("DOMContentLoaded", Init);
-}
-
-function Init() {
-  time = new Date();
-  Start();
-  Loop();
-}
-function Loop() {
-  deltaTime = (new Date() - time) / 1000;
-  time = new Date();
-  Update();
-  requestAnimationFrame(Loop);
-}
-
-/* ===== GAME STATE ===== */
 var sueloY = 2;
-
-
 var velY = 0, impulso = 900, gravedad = 2500;
 var dinoPosX = 24, dinoPosY = sueloY;
 var sueloX = 0, velEscenario = 1280 / 3, gameVel = 1, score = 0;
 var parado = false, saltando = false;
-var tiempoHastaObstaculo = 2, tiempoObstaculoMin = 0.7, tiempoObstaculoMax = 1.8, obstaculoPosY = 16, obstaculos = [];
-
-var tiempoHastaNube = 0.5, tiempoNubeMin = 0.7, tiempoNubeMax = 2.7, maxNubeY = 270, minNubeY = 100, nubes = [], velNube = 0.5;
+var tiempoHastaObstaculo = 2, tiempoObstaculoMin = 0.7, tiempoObstaculoMax = 1.8, obstaculos = [];
+var tiempoHastaNube = 0.5, tiempoNubeMin = 0.7, tiempoNubeMax = 2.7, nubes = [], velNube = 0.5;
 
 var contenedor, dino, textoScore, suelo, gameOver;
 var WIN_SCORE = 10;
@@ -72,7 +25,31 @@ var quizAnswerIndex = null;
 var quizVisible = false;
 var navigatingToRegistro = false;
 
-/* ===== START ===== */
+// 🛑 Variables de la cuenta regresiva y estado del juego
+var countdownActive = false;
+var gameStarted = false;
+var loopRequestId;
+
+/* ===== INICIALIZACIÓN ===== */
+if (document.readyState === "complete" || document.readyState === "interactive") {
+  setTimeout(Init, 1);
+} else {
+  document.addEventListener("DOMContentLoaded", Init);
+}
+
+function Init() {
+  Start();
+  ConfigurarPortada(); // Arranca escuchando el botón de la portada integrada
+}
+
+function Loop() {
+  deltaTime = (new Date() - time) / 1000;
+  time = new Date();
+  Update();
+  loopRequestId = requestAnimationFrame(Loop);
+}
+
+/* ===== START (Asignación de eventos y elementos) ===== */
 function Start() {
   gameOver = document.querySelector(".game-over");
   suelo = document.querySelector(".suelo");
@@ -81,16 +58,13 @@ function Start() {
   dino = document.querySelector(".dino");
   jumpSound = document.getElementById("jumpSound");
 
-  tryLandscapeLock();
-
   document.addEventListener("keydown", HandleKeyDown, { passive: false });
-  contenedor.addEventListener("click", function (e) { e.preventDefault(); tryLandscapeLock(); Saltar(); }, { passive: false });
+  contenedor.addEventListener("click", function (e) { e.preventDefault(); Saltar(); }, { passive: false });
   contenedor.addEventListener("touchstart", function (e) {
-    e.preventDefault(); tryLandscapeLock();
-    if (!parado) Saltar();
+    e.preventDefault();
+    if (!parado && gameStarted && !countdownActive) Saltar();
   }, { passive: false });
   window.addEventListener("pointerdown", GlobalTap, { passive: false });
-
 
   document.getElementById("btnRetry").addEventListener("click", function () { location.reload(); });
   document.getElementById("btnQuizOk").addEventListener("click", validarQuiz);
@@ -100,7 +74,7 @@ function Start() {
     quizVisible = false;
     try { document.getElementById("quizOverlay").classList.remove("show"); } catch (e) { }
     document.body.classList.remove("quiz-mode");
-    location.replace("portada.html");
+    location.reload(); // Volvemos a mostrar la portada recargando
   });
 
   cargarQuizJSON();
@@ -111,6 +85,72 @@ function Start() {
 
   document.addEventListener("keydown", blockShortcutsDuringQuiz, { capture: true });
   document.addEventListener("contextmenu", function (e) { if (quizVisible) e.preventDefault(); });
+}
+
+/* ===== LÓGICA DE PORTADA INTEGRADA Y CUENTA REGRESIVA ===== */
+function ConfigurarPortada() {
+  const btnJugar = document.getElementById("btnJugarPortada");
+  const portada = document.getElementById("portadaOverlay");
+
+  if (btnJugar) {
+    btnJugar.addEventListener("click", async () => {
+      try {
+        // 1. Pedimos Pantalla Completa
+        if (document.documentElement.requestFullscreen) {
+          await document.documentElement.requestFullscreen();
+        } else if (document.documentElement.webkitRequestFullscreen) {
+          await document.documentElement.webkitRequestFullscreen();
+        }
+
+        // 2. Forzamos rotación horizontal
+        if (screen.orientation && screen.orientation.lock) {
+          await screen.orientation.lock("landscape");
+        }
+      } catch (err) {
+        console.warn("No se pudo forzar rotación:", err);
+      }
+
+      // 3. Ocultar la portada
+      if (portada) portada.classList.remove("show");
+
+      // 4. Iniciar la cuenta de 5 segundos
+      runCountdown();
+    });
+  }
+}
+
+function runCountdown() {
+  if (gameStarted || countdownActive) return;
+  countdownActive = true;
+
+  let count = 5;
+  const stage = document.querySelector(".stage");
+  const overlay = document.createElement("div");
+
+  overlay.style.cssText = "position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-size:140px;font-weight:900;color:#fff;text-shadow:0 8px 25px rgba(0,0,0,0.8);z-index:9999;background:rgba(0,0,0,0.5);font-family:sans-serif;margin:0;";
+  stage.appendChild(overlay);
+
+  overlay.innerText = count;
+
+  if (jumpSound) { jumpSound.currentTime = 0; jumpSound.play().catch(() => { }); }
+
+  const timer = setInterval(() => {
+    count--;
+    if (count > 0) {
+      overlay.innerText = count;
+      if (jumpSound) { jumpSound.currentTime = 0; jumpSound.play().catch(() => { }); }
+    } else if (count === 0) {
+      overlay.innerText = "¡YA!";
+      overlay.style.color = "#00c9b7";
+    } else {
+      clearInterval(timer);
+      overlay.remove();
+      countdownActive = false;
+      gameStarted = true;
+      time = new Date();
+      Loop(); // 🚀 ARRANCA EL JUEGO
+    }
+  }, 1000);
 }
 
 /* ===== QUIZ JSON ===== */
@@ -127,25 +167,23 @@ async function cargarQuizJSON() {
 
 /* ===== CONTROLES ===== */
 function GlobalTap(e) {
-  if (parado || quizVisible) return;
+  if (parado || quizVisible || countdownActive || !gameStarted) return;
   var target = e.target;
   if (target.closest("#retryWrap") || target.closest("#quizOverlay")) return;
   var tag = (target.tagName || "").toLowerCase();
   if (tag === "button" || tag === "a") return;
   if (e && typeof e.preventDefault === "function") e.preventDefault();
-  tryLandscapeLock();
   Saltar();
 }
 
 function HandleKeyDown(ev) {
-  if (quizVisible) return;
+  if (quizVisible || countdownActive || !gameStarted) return;
   if (ev.code === "Space" || ev.keyCode === 32 || ev.code === "ArrowUp" || ev.keyCode === 38) {
-    ev.preventDefault(); tryLandscapeLock(); Saltar();
+    ev.preventDefault(); Saltar();
   }
 }
 
-
-/* ===== UPDATE ===== */
+/* ===== UPDATE (Lógica de movimiento y colisiones) ===== */
 function Update() {
   if (parado) return;
   MoverDinosaurio();
@@ -255,8 +293,6 @@ function DetectarColision() {
     if (obstaculos[i].posX > dinoPosX + dino.clientWidth) break;
 
     var obs = obstaculos[i];
-    // Hitbox de PRECISIÓN: Ajustada para ignorar el hocico y la cola larga
-    // pl: izquierda (cola), pr: derecha (hocico), pt: arriba, pb: abajo
     var pt = 40, pr = 80, pb = 10, pl = 80;
 
     if (IsCollision(dino, obs, pt, pr, pb, pl)) GameOver();
@@ -307,7 +343,6 @@ async function validarQuiz() {
   var sel = document.querySelector('input[name="q1"]:checked');
   var btnOk = document.getElementById("btnQuizOk");
 
-  // Si el botón ya dice "Volver a jugar", recargamos
   if (btnOk.textContent === "Volver a jugar") {
     location.reload();
     return;
@@ -323,18 +358,15 @@ async function validarQuiz() {
     navigatingToRegistro = true; quizVisible = false;
     document.getElementById("quizOverlay").classList.remove("show");
 
-    // REGISTRO DEL QUIZ GANADO
     await registrarQuizEnSupabase(score);
 
     setTimeout(function () { window.location.href = "registro.html"; }, 400);
   } else {
     msg.textContent = "Incorrecto. ¡Vuelve a jugar!"; msg.className = "quiz-msg err";
 
-    // Deshabilitar todos los inputs para que no pueda elegir otra
     var inputs = document.querySelectorAll('input[name="q1"]');
     inputs.forEach(inp => inp.disabled = true);
 
-    // Cambiar el botón para que sea de reinicio
     btnOk.textContent = "Volver a jugar";
   }
 }
@@ -342,7 +374,7 @@ async function validarQuiz() {
 function antiCheatGuard() {
   if (navigatingToRegistro || !quizVisible) return;
   try { document.getElementById("quizOverlay").classList.remove("show"); } catch (e) { }
-  location.replace("portada.html");
+  location.reload(); // Recarga para asegurar que vuelva a mostrar la portada
 }
 function blockShortcutsDuringQuiz(e) {
   if (!quizVisible) return;
@@ -353,7 +385,6 @@ function blockShortcutsDuringQuiz(e) {
 }
 
 /* ===== SUPABASE LOGIC ===== */
-
 async function ensureParticipanteId() {
   const sb = window.supabase;
   if (!sb) return null;
@@ -392,8 +423,8 @@ async function ensureParticipanteId() {
     return null;
   }
 }
+
 async function registrarQuizEnSupabase(puntaje) {
-  // Usamos la conexión global creada en index.html
   if (!window.supabase) {
     console.warn("Supabase no está cargado.");
     return;
@@ -401,19 +432,16 @@ async function registrarQuizEnSupabase(puntaje) {
 
   try {
     const ahora = getMexicoTime();
-    // ✅ USA EL ID CORRECTO DEL SPINOSAURIO
     const salaId = window.SALA_ID || '0b4f04b0-5196-473d-8689-55d5f315df55';
-
-    // Aseguramos que el participante exista
     const participante_id = await ensureParticipanteId();
 
     const { data, error } = await window.supabase
       .from("quizzes")
       .insert({
         sala_id: salaId,
-        participante_id: participante_id, // <--- VÍNCULO AÑADIDO
-        puntaje_total: puntaje,  // Guarda el puntaje real del juego
-        num_correctas: 1,        // Ganó el quiz
+        participante_id: participante_id,
+        puntaje_total: puntaje,
+        num_correctas: 1,
         started_at: ahora,
         finished_at: ahora,
         estatus: 'finalizado'
