@@ -462,6 +462,7 @@
                 // Aquí guardamos en la tabla personalizada
                 await window.supabase.from('intentos_juego').insert([{
                   puntaje: puntajeFinal,
+                  ubicacion: localStorage.getItem('much_lugar_seguro') || 'Sin Especificar',
                   created_at: getMexicoTime()
                 }]);
 

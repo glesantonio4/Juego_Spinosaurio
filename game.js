@@ -6,6 +6,16 @@ function getMexicoTime() {
   return localTime.toISOString();
 }
 
+/* ===== BLINDAJE POI: Captura de ubicación desde URL ===== */
+(function () {
+  const params = new URLSearchParams(window.location.search);
+  const lugarURL = params.get('lugar');
+  if (lugarURL) {
+    localStorage.setItem('much_lugar_seguro', lugarURL);
+  }
+})();
+const LUGAR_QR = localStorage.getItem('much_lugar_seguro') || 'Sin Especificar';
+
 /* ====== LOOP BASE Y VARIABLES GLOBALES ====== */
 var time = new Date(), deltaTime = 0;
 var sueloY = 2;
@@ -148,6 +158,7 @@ function runCountdown() {
       countdownActive = false;
       gameStarted = true;
       time = new Date();
+      registrarIntentoInicial(); // 📝 Registra intento con puntaje 0 al iniciar
       Loop(); // 🚀 ARRANCA EL JUEGO
     }
   }, 1000);
@@ -285,6 +296,7 @@ function GanarPuntos() {
 function GameOver() {
   Estrellarse(); gameOver.style.display = "grid";
   var wrap = document.getElementById("retryWrap"); if (wrap) wrap.classList.add("show");
+  registrarQuizEnSupabase(score); // 📊 Actualizamos el puntaje real al morir
   try { window.scrollTo({ top: 0, behavior: "smooth" }); } catch (e) { }
 }
 
@@ -358,7 +370,9 @@ async function validarQuiz() {
     navigatingToRegistro = true; quizVisible = false;
     document.getElementById("quizOverlay").classList.remove("show");
 
-    await registrarQuizEnSupabase(score);
+    // 🚀 CREAMOS EL GANADOR REAL Y GUARDAMOS PUNTAJE FINAL
+    const ganadorId = await crearParticipanteGanador();
+    await registrarQuizEnSupabase(score, ganadorId);
 
     setTimeout(function () { window.location.href = "registro.html"; }, 400);
   } else {
@@ -385,7 +399,39 @@ function blockShortcutsDuringQuiz(e) {
 }
 
 /* ===== SUPABASE LOGIC ===== */
-async function ensureParticipanteId() {
+async function registrarIntentoInicial() {
+  if (!window.supabase) return;
+  try {
+    const ID_SALA_SPINO = '0b4f04b0-5196-473d-8689-55d5f315df55';
+
+    console.log("📝 Registrando intento inicial...", { puntaje: 0, ubicacion: LUGAR_QR });
+
+    const { data, error } = await window.supabase
+      .from("intentos_juego")
+      .insert({
+        sala_id: ID_SALA_SPINO,
+        puntaje: 0,
+        ubicacion: LUGAR_QR,
+        created_at: getMexicoTime()
+      })
+      .select('id')
+      .single();
+
+    if (error) {
+      console.error("❌ Error Supabase al registrar intento inicial:", error.message);
+      return null;
+    } else {
+      console.log("✅ Intento inicial registrado exitosamente:", data.id);
+      sessionStorage.setItem("ultimo_intento_id", data.id);
+      return data.id;
+    }
+  } catch (e) {
+    console.error("❌ Error crítico en el registro de intento inicial:", e);
+    return null;
+  }
+}
+
+async function crearParticipanteGanador() {
   const sb = window.supabase;
   if (!sb) return null;
 
@@ -394,67 +440,74 @@ async function ensureParticipanteId() {
 
   const randomSuffix = Math.floor(Math.random() * 999999);
   try {
-    console.log("Creando jugador temporal en Ganadores...");
     const { data, error } = await sb
       .from('Ganadores')
       .insert([
         {
-          nombre: 'Visitante Spinosaurio',
-          correo: `visitante.${randomSuffix}@much.mx`,
+          nombre: 'Visitante Spinosaurio (Ganador)',
+          correo: `ganador.${randomSuffix}@much.mx`,
           telefono: '0000000000',
-          folio: 'V-' + randomSuffix,
-          valido_desde: getMexicoTime()
+          folio: 'G-' + randomSuffix,
+          valido_desde: getMexicoTime(),
+          ubicacion: LUGAR_QR
         }
       ])
       .select('id')
       .single();
 
     if (error) {
-      console.warn("Fallback de participante...", error.message);
-      const { data: fallback } = await sb.from('Ganadores').select('id').limit(1);
-      return fallback?.[0]?.id || null;
+      console.error("❌ Error al crear Ganador:", error.message);
+      return null;
     }
-
-    console.log("Jugador temporal creado con ID:", data.id);
+    console.log("✅ Ganador creado con ID:", data.id);
     sessionStorage.setItem("usuario_id", data.id);
     return data.id;
-  } catch (e) {
-    console.warn("Error en ensureParticipanteId:", e);
-    return null;
-  }
+  } catch (e) { return null; }
 }
 
-async function registrarQuizEnSupabase(puntaje) {
-  if (!window.supabase) {
-    console.warn("Supabase no está cargado.");
-    return;
-  }
-
+async function registrarQuizEnSupabase(puntajeFinal, ganadorId = null) {
+  if (!window.supabase) return;
   try {
-    const ahora = getMexicoTime();
-    const salaId = window.SALA_ID || '0b4f04b0-5196-473d-8689-55d5f315df55';
-    const participante_id = await ensureParticipanteId();
+    const intentoId = sessionStorage.getItem("ultimo_intento_id");
+    const ID_SALA_SPINO = '0b4f04b0-5196-473d-8689-55d5f315df55';
 
-    const { data, error } = await window.supabase
-      .from("quizzes")
-      .insert({
-        sala_id: salaId,
-        participante_id: participante_id,
-        puntaje_total: puntaje,
-        num_correctas: 1,
-        started_at: ahora,
-        finished_at: ahora,
-        estatus: 'finalizado'
-      })
-      .select("id")
-      .single();
+    if (intentoId) {
+      // 🔄 UPDATE: actualizamos puntos y ganador sobre el registro inicial
+      const payload = { puntaje: puntajeFinal, ubicacion: LUGAR_QR };
+      if (ganadorId) payload.id_participante = ganadorId;
 
-    if (error) console.warn("Error insert Supabase:", error.message);
-    else {
-      console.log("¡Quiz guardado en sala Spinosaurio!");
-      try { localStorage.setItem("much_quiz_db_id", String(data.id)); } catch (_) { }
+      const { error } = await window.supabase
+        .from("intentos_juego")
+        .update(payload)
+        .eq("id", intentoId);
+
+      if (error) {
+        console.error("❌ Error Supabase al actualizar intento:", error.message);
+      } else {
+        console.log("✅ Puntaje actualizado exitosamente (update) →", puntajeFinal);
+      }
+    } else {
+      // ⚠️ INSERT FALLBACK: si no se encontró el intento inicial
+      console.warn("⚠️ No se encontró ultimo_intento_id, haciendo insert fallback...");
+      const payload = {
+        sala_id: ID_SALA_SPINO,
+        puntaje: puntajeFinal,
+        ubicacion: LUGAR_QR,
+        created_at: getMexicoTime()
+      };
+      if (ganadorId) payload.id_participante = ganadorId;
+
+      const { error } = await window.supabase
+        .from("intentos_juego")
+        .insert(payload);
+
+      if (error) {
+        console.error("❌ Error Supabase al insertar fallback:", error.message);
+      } else {
+        console.log("✅ Puntaje guardado (insert fallback) →", puntajeFinal);
+      }
     }
   } catch (e) {
-    console.warn("Fallo conexión Supabase:", e);
+    console.error("❌ Error crítico en el registro:", e);
   }
 }
