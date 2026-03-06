@@ -1,17 +1,16 @@
 /* ===== Funciones de Tiempo y Utilidades ===== */
 function getMexicoTime() {
-  const ahora = new Date();
-  const offsetMexico = ahora.getTimezoneOffset() * 60000;
-  const localTime = new Date(ahora.getTime() - offsetMexico);
-  return localTime.toISOString();
+  return new Date().toISOString(); // Let Supabase handle the timezone
 }
 
 /* ===== BLINDAJE POI: Captura de ubicación desde URL ===== */
 (function () {
   const params = new URLSearchParams(window.location.search);
   const lugarURL = params.get('lugar');
-  if (lugarURL) {
+  if (lugarURL && lugarURL.trim() !== "") {
     localStorage.setItem('much_lugar_seguro', lugarURL);
+  } else if (!lugarURL && (window.location.hostname === '127.0.0.1' || window.location.hostname === 'localhost')) {
+    localStorage.removeItem('much_lugar_seguro');
   }
 })();
 const LUGAR_QR = localStorage.getItem('much_lugar_seguro') || 'Sin Especificar';
@@ -129,7 +128,7 @@ function ConfigurarPortada() {
   }
 }
 
-function runCountdown() {
+async function runCountdown() {
   if (gameStarted || countdownActive) return;
   countdownActive = true;
 
@@ -144,7 +143,7 @@ function runCountdown() {
 
   if (jumpSound) { jumpSound.currentTime = 0; jumpSound.play().catch(() => { }); }
 
-  const timer = setInterval(() => {
+  const timer = setInterval(async () => {
     count--;
     if (count > 0) {
       overlay.innerText = count;
@@ -158,7 +157,10 @@ function runCountdown() {
       countdownActive = false;
       gameStarted = true;
       time = new Date();
-      registrarIntentoInicial(); // 📝 Registra intento con puntaje 0 al iniciar
+
+      // 📝 Await the initial registration to ensure ultimo_intento_id is saved before any score updates
+      await registrarIntentoInicial();
+
       Loop(); // 🚀 ARRANCA EL JUEGO
     }
   }, 1000);
@@ -406,6 +408,7 @@ async function registrarIntentoInicial() {
 
     console.log("📝 Registrando intento inicial...", { puntaje: 0, ubicacion: LUGAR_QR });
 
+    // 📝 Insertamos el registro inicial. Usamos .select('id') para obtenerlo de vuelta.
     const { data, error } = await window.supabase
       .from("intentos_juego")
       .insert({
@@ -414,16 +417,18 @@ async function registrarIntentoInicial() {
         ubicacion: LUGAR_QR,
         created_at: getMexicoTime()
       })
-      .select('id')
-      .single();
+      .select('id');
 
     if (error) {
       console.error("❌ Error Supabase al registrar intento inicial:", error.message);
       return null;
+    } else if (data && data.length > 0) {
+      console.log("✅ Intento inicial registrado exitosamente ID:", data[0].id);
+      sessionStorage.setItem("ultimo_intento_id", data[0].id);
+      return data[0].id;
     } else {
-      console.log("✅ Intento inicial registrado exitosamente:", data.id);
-      sessionStorage.setItem("ultimo_intento_id", data.id);
-      return data.id;
+      console.warn("⚠️ Registro creado pero no se pudo recuperar el ID. Verifica las políticas RLS.");
+      return null;
     }
   } catch (e) {
     console.error("❌ Error crítico en el registro de intento inicial:", e);

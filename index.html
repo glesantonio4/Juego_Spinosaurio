@@ -414,7 +414,7 @@
   <script src="game.js" defer></script>
 
   <script>
-    /* Lógica de registro de intentos en tabla NUEVA 'intentos_juego' */
+    /* Prevenir comportamientos indeseados en dispositivos táctiles */
     document.addEventListener('dblclick', e => e.preventDefault(), { passive: false });
     let lastTouchEnd = 0;
     document.addEventListener('touchend', e => {
@@ -423,61 +423,6 @@
       lastTouchEnd = now;
     }, { passive: false });
     document.addEventListener('gesturestart', e => e.preventDefault(), { passive: false });
-
-    window.addEventListener('load', () => {
-      const scoreEl = document.querySelector('.score');
-      const gameOverEl = document.querySelector('.game-over');
-      let inicioPartida = new Date().toISOString();
-      let ultimaPartidaGuardada = null;
-
-      function getMexicoTime() {
-        const ahora = new Date();
-        const offsetMexico = ahora.getTimezoneOffset() * 60000;
-        const localTime = new Date(ahora.getTime() - offsetMexico);
-        return localTime.toISOString();
-      }
-
-      function estaVisible(el) {
-        if (!el) return false;
-        return getComputedStyle(el).display !== 'none';
-      }
-
-      // Revisamos el estado del juego cada medio segundo
-      setInterval(async () => {
-        const esGameOver = estaVisible(gameOverEl);
-
-        if (esGameOver) {
-          // Si acaba de morir
-          const puntosTexto = scoreEl.textContent || '0';
-          const firma = puntosTexto + '-' + inicioPartida;
-
-          if (ultimaPartidaGuardada !== firma) {
-            ultimaPartidaGuardada = firma;
-
-            // REGISTRO EN LA NUEVA TABLA 'intentos_juego'
-            if (window.supabase) {
-              try {
-                const puntajeFinal = parseInt(puntosTexto) || 0;
-
-                // Aquí guardamos en la tabla personalizada
-                await window.supabase.from('intentos_juego').insert([{
-                  puntaje: puntajeFinal,
-                  ubicacion: localStorage.getItem('much_lugar_seguro') || 'Sin Especificar',
-                  created_at: getMexicoTime()
-                }]);
-
-                console.log(`✅ Game Over. Puntaje ${puntajeFinal} guardado en 'intentos_juego'.`);
-              } catch (e) { console.warn("Error guardando intento", e); }
-            }
-          }
-        } else {
-          // Si está jugando de nuevo (ya no es Game Over), reseteamos
-          if (ultimaPartidaGuardada && !esGameOver) {
-            inicioPartida = new Date().toISOString();
-          }
-        }
-      }, 500);
-    });
   </script>
 </body>
 
