@@ -132,7 +132,7 @@ async function runCountdown() {
   if (gameStarted || countdownActive) return;
   countdownActive = true;
 
-  let count = 5;
+  let count = 3;
   const stage = document.querySelector(".stage");
   const overlay = document.createElement("div");
 
@@ -295,13 +295,23 @@ function GanarPuntos() {
   suelo.style.animationDuration = 3 / gameVel + "s";
 }
 
-function GameOver() {
-  Estrellarse(); gameOver.style.display = "grid";
-  var wrap = document.getElementById("retryWrap"); if (wrap) wrap.classList.add("show");
-  registrarQuizEnSupabase(score); // 📊 Actualizamos el puntaje real al morir
-  try { window.scrollTo({ top: 0, behavior: "smooth" }); } catch (e) { }
-}
+async function GameOver() {
+  if (parado) return;
+  parado = true;
 
+  dino.classList.remove("dino-corriendo");
+  dino.classList.add("dino-estrellado");
+  gameOver.style.display = "grid";
+
+  var wrap = document.getElementById("retryWrap");
+  if (wrap) wrap.classList.add("show");
+
+  await registrarQuizEnSupabase(Number(score));
+
+  try {
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  } catch (e) { }
+}
 function DetectarColision() {
   for (var i = 0; i < obstaculos.length; i++) {
     if (obstaculos[i].posX > dinoPosX + dino.clientWidth) break;
@@ -372,9 +382,8 @@ async function validarQuiz() {
     navigatingToRegistro = true; quizVisible = false;
     document.getElementById("quizOverlay").classList.remove("show");
 
-    // 🚀 CREAMOS EL GANADOR REAL Y GUARDAMOS PUNTAJE FINAL
     const ganadorId = await crearParticipanteGanador();
-    await registrarQuizEnSupabase(score, ganadorId);
+    await registrarQuizEnSupabase(Number(score), ganadorId);
 
     setTimeout(function () { window.location.href = "registro.html"; }, 400);
   } else {
@@ -402,36 +411,53 @@ function blockShortcutsDuringQuiz(e) {
 
 /* ===== SUPABASE LOGIC ===== */
 async function registrarIntentoInicial() {
-  if (!window.supabase) return;
+  if (!window.supabase) {
+    console.error("❌ Supabase no está disponible en registrarIntentoInicial");
+    return null;
+  }
+
   try {
     const ID_SALA_SPINO = '0b4f04b0-5196-473d-8689-55d5f315df55';
 
-    console.log("📝 Registrando intento inicial...", { puntaje: 0, ubicacion: LUGAR_QR });
+    console.log("📝 Entró a registrarIntentoInicial");
+    console.log("📝 Datos a insertar:", {
+      sala_id: ID_SALA_SPINO,
+      puntaje: 0,
+      ubicacion: LUGAR_QR,
+      estatus: 'activo',
+      created_at: getMexicoTime()
+    });
 
-    // 📝 Insertamos el registro inicial. Usamos .select('id') para obtenerlo de vuelta.
     const { data, error } = await window.supabase
       .from("intentos_juego")
       .insert({
         sala_id: ID_SALA_SPINO,
         puntaje: 0,
         ubicacion: LUGAR_QR,
+        estatus: 'activo',
         created_at: getMexicoTime()
       })
-      .select('id');
+      .select("id")
+      .single();
+
+    console.log("🧪 Resultado insert intento inicial:", { data, error });
 
     if (error) {
-      console.error("❌ Error Supabase al registrar intento inicial:", error.message);
-      return null;
-    } else if (data && data.length > 0) {
-      console.log("✅ Intento inicial registrado exitosamente ID:", data[0].id);
-      sessionStorage.setItem("ultimo_intento_id", data[0].id);
-      return data[0].id;
-    } else {
-      console.warn("⚠️ Registro creado pero no se pudo recuperar el ID. Verifica las políticas RLS.");
+      console.error("❌ Error Supabase al registrar intento inicial:", error);
       return null;
     }
+
+    if (!data || !data.id) {
+      console.warn("⚠️ Se insertó pero no regresó id. Posible problema de RLS en SELECT.");
+      return null;
+    }
+
+    sessionStorage.setItem("ultimo_intento_id", String(data.id));
+    console.log("✅ ultimo_intento_id guardado:", sessionStorage.getItem("ultimo_intento_id"));
+
+    return data.id;
   } catch (e) {
-    console.error("❌ Error crítico en el registro de intento inicial:", e);
+    console.error("❌ Error crítico en registrarIntentoInicial:", e);
     return null;
   }
 }
@@ -471,48 +497,94 @@ async function crearParticipanteGanador() {
 }
 
 async function registrarQuizEnSupabase(puntajeFinal, ganadorId = null) {
-  if (!window.supabase) return;
+  if (!window.supabase) {
+    console.error("❌ Supabase no está disponible");
+    return;
+  }
+
   try {
     const intentoId = sessionStorage.getItem("ultimo_intento_id");
+    const intentoIdNum = Number(intentoId);
     const ID_SALA_SPINO = '0b4f04b0-5196-473d-8689-55d5f315df55';
+    const puntaje = Number(puntajeFinal);
 
-    if (intentoId) {
-      // 🔄 UPDATE: actualizamos puntos y ganador sobre el registro inicial
-      const payload = { puntaje: puntajeFinal, ubicacion: LUGAR_QR };
-      if (ganadorId) payload.id_participante = ganadorId;
+    console.log("🎯 Guardando puntaje:", puntaje);
+    console.log("🎯 intentoId original:", intentoId, "tipo:", typeof intentoId);
+    console.log("🎯 intentoId convertido:", intentoIdNum, "tipo:", typeof intentoIdNum);
 
-      const { error } = await window.supabase
+    if (Number.isNaN(puntaje)) {
+      console.error("❌ puntajeFinal no es válido:", puntajeFinal);
+      return;
+    }
+
+    if (intentoId && !Number.isNaN(intentoIdNum)) {
+      const payload = {
+        puntaje: puntaje,
+        estatus: 'finalizado'
+      };
+
+      if (ganadorId) payload.participante_id = ganadorId;
+
+      const { data, error } = await window.supabase
         .from("intentos_juego")
         .update(payload)
-        .eq("id", intentoId);
+        .eq("id", intentoIdNum)
+        .select();
 
       if (error) {
-        console.error("❌ Error Supabase al actualizar intento:", error.message);
+        console.error("❌ Error Supabase al actualizar intento:", error);
+      } else if (!data || data.length === 0) {
+        console.warn("⚠️ No se actualizó ninguna fila con id:", intentoIdNum);
       } else {
-        console.log("✅ Puntaje actualizado exitosamente (update) →", puntajeFinal);
+        console.log("✅ Puntaje actualizado exitosamente →", puntaje, data);
       }
     } else {
-      // ⚠️ INSERT FALLBACK: si no se encontró el intento inicial
-      console.warn("⚠️ No se encontró ultimo_intento_id, haciendo insert fallback...");
+      console.warn("⚠️ No se encontró ultimo_intento_id válido, haciendo insert fallback...");
+
       const payload = {
         sala_id: ID_SALA_SPINO,
-        puntaje: puntajeFinal,
+        puntaje: puntaje,
         ubicacion: LUGAR_QR,
+        estatus: 'finalizado',
         created_at: getMexicoTime()
       };
-      if (ganadorId) payload.id_participante = ganadorId;
 
-      const { error } = await window.supabase
+      if (ganadorId) payload.participante_id = ganadorId;
+
+      const { data, error } = await window.supabase
         .from("intentos_juego")
-        .insert(payload);
+        .insert(payload)
+        .select();
 
       if (error) {
-        console.error("❌ Error Supabase al insertar fallback:", error.message);
+        console.error("❌ Error Supabase al insertar fallback:", error);
       } else {
-        console.log("✅ Puntaje guardado (insert fallback) →", puntajeFinal);
+        console.log("✅ Puntaje guardado con insert fallback →", puntaje, data);
       }
     }
   } catch (e) {
     console.error("❌ Error crítico en el registro:", e);
   }
+}
+async function debugGuardarPuntajeManual() {
+  if (!window.supabase) {
+    console.error("❌ Supabase no está disponible");
+    return;
+  }
+
+  const intentoId = sessionStorage.getItem("ultimo_intento_id");
+  console.log("🧪 DEBUG intentoId:", intentoId, "tipo:", typeof intentoId);
+
+  if (!intentoId) {
+    console.warn("⚠️ No existe ultimo_intento_id en sessionStorage");
+    return;
+  }
+
+  const { data, error } = await window.supabase
+    .from("intentos_juego")
+    .update({ puntaje: 99, estatus: "finalizado" })
+    .eq("id", Number(intentoId))
+    .select();
+
+  console.log("🧪 DEBUG resultado update:", { data, error });
 }

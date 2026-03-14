@@ -355,7 +355,7 @@
     </div>
 
     <div class="portada-card">
-      <img src="logo-much-nuevo1.png" alt="MUCH" class="portada-much-logo">
+      <img src="logo-much.png" alt="MUCH" class="portada-much-logo">
 
       <h1 class="portada-title">SPINOSAURUS<br>RUNNER</h1>
       <p class="portada-sub">Salta los cactus, acumula puntos y ¡reclama tu premio! 🦕</p>
@@ -371,7 +371,7 @@
       <div class="hud-logos" aria-hidden="true">
         <img src="Logo-Ag-14.png" alt="Agencia Digital Chiapas">
         <img src="logo-sata.png" alt="SATA">
-        <img src="logo-much-nuevo1.png" alt="MUCH">
+        <img src="logo-much.png" alt="MUCH">
       </div>
       <div class="suelo"></div>
       <div class="dino dino-corriendo"></div>
@@ -411,7 +411,7 @@
     console.log("Supabase listo para registrar en intentos_juego.");
   </script>
 
-  <script src="game.js" defer></script>
+  <script src="game.js?v=2" defer></script>
 
   <script>
     /* Prevenir comportamientos indeseados en dispositivos táctiles */
@@ -423,6 +423,7 @@
       lastTouchEnd = now;
     }, { passive: false });
     document.addEventListener('gesturestart', e => e.preventDefault(), { passive: false });
+
   </script>
 </body>
 
