@@ -508,9 +508,7 @@ async function registrarQuizEnSupabase(puntajeFinal, ganadorId = null) {
     const ID_SALA_SPINO = '0b4f04b0-5196-473d-8689-55d5f315df55';
     const puntaje = Number(puntajeFinal);
 
-    console.log("🎯 Guardando puntaje:", puntaje);
-    console.log("🎯 intentoId original:", intentoId, "tipo:", typeof intentoId);
-    console.log("🎯 intentoId convertido:", intentoIdNum, "tipo:", typeof intentoIdNum);
+
 
     if (Number.isNaN(puntaje)) {
       console.error("❌ puntajeFinal no es válido:", puntajeFinal);
@@ -565,26 +563,4 @@ async function registrarQuizEnSupabase(puntajeFinal, ganadorId = null) {
   } catch (e) {
     console.error("❌ Error crítico en el registro:", e);
   }
-}
-async function debugGuardarPuntajeManual() {
-  if (!window.supabase) {
-    console.error("❌ Supabase no está disponible");
-    return;
-  }
-
-  const intentoId = sessionStorage.getItem("ultimo_intento_id");
-  console.log("🧪 DEBUG intentoId:", intentoId, "tipo:", typeof intentoId);
-
-  if (!intentoId) {
-    console.warn("⚠️ No existe ultimo_intento_id en sessionStorage");
-    return;
-  }
-
-  const { data, error } = await window.supabase
-    .from("intentos_juego")
-    .update({ puntaje: 99, estatus: "finalizado" })
-    .eq("id", Number(intentoId))
-    .select();
-
-  console.log("🧪 DEBUG resultado update:", { data, error });
 }
